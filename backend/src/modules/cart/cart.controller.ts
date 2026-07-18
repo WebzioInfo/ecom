@@ -32,12 +32,22 @@ export class CartController {
   }
 
   @Post()
-  async addToCart(@Request() req: AuthRequest, @Body() addToCartDto: AddToCartDto) {
-    return this.cartService.addToCart(req.user.userId, addToCartDto.productId, addToCartDto.quantity);
+  async addToCart(
+    @Request() req: AuthRequest,
+    @Body() addToCartDto: AddToCartDto,
+  ) {
+    return this.cartService.addToCart(
+      req.user.userId,
+      addToCartDto.productId,
+      addToCartDto.quantity,
+    );
   }
 
   @Patch()
-  async updateCart(@Request() req: AuthRequest, @Body() updateCartItemDto: UpdateCartItemDto) {
+  async updateCart(
+    @Request() req: AuthRequest,
+    @Body() updateCartItemDto: UpdateCartItemDto,
+  ) {
     return this.cartService.updateCartItem(
       req.user.userId,
       updateCartItemDto.productId,
@@ -46,7 +56,10 @@ export class CartController {
   }
 
   @Delete(':productId')
-  async removeItem(@Request() req: AuthRequest, @Param('productId') productId: string) {
+  async removeItem(
+    @Request() req: AuthRequest,
+    @Param('productId') productId: string,
+  ) {
     return this.cartService.removeItem(req.user.userId, productId);
   }
 }

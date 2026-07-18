@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
@@ -32,7 +37,11 @@ export class AuthService {
       verificationToken,
     });
 
-    const payload = { sub: newUser._id, email: newUser.email, roles: newUser.roles };
+    const payload = {
+      sub: newUser._id,
+      email: newUser.email,
+      roles: newUser.roles,
+    };
     return {
       access_token: this.jwtService.sign(payload),
       verificationToken,
@@ -68,17 +77,22 @@ export class AuthService {
     await this.usersService.updateProfile(user._id.toString(), {
       resetToken,
       resetTokenExpiration,
-    } as any);
+    });
 
     return {
-      message: 'Password reset requested. Use the provided token to reset your password.',
+      message:
+        'Password reset requested. Use the provided token to reset your password.',
       resetToken,
     };
   }
 
   async resetPassword(token: string, password: string) {
     const user = await this.usersService.findByResetToken(token);
-    if (!user || !user.resetTokenExpiration || user.resetTokenExpiration < new Date()) {
+    if (
+      !user ||
+      !user.resetTokenExpiration ||
+      user.resetTokenExpiration < new Date()
+    ) {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
 
@@ -87,7 +101,7 @@ export class AuthService {
       password: hashedPassword,
       resetToken: undefined,
       resetTokenExpiration: undefined,
-    } as any);
+    });
 
     return { message: 'Password reset successfully' };
   }
@@ -101,7 +115,7 @@ export class AuthService {
     await this.usersService.updateProfile(user._id.toString(), {
       isVerified: true,
       verificationToken: undefined,
-    } as any);
+    });
     return { message: 'Email verified successfully' };
   }
 }

@@ -4,6 +4,12 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
 
+export interface JwtPayload {
+  sub: string;
+  email: string;
+  roles: string[];
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -13,15 +19,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_ACCESS_SECRET') || 'fallback_secret',
+      secretOrKey:
+        configService.get<string>('JWT_ACCESS_SECRET') || 'fallback_secret',
     });
   }
 
-  async validate(payload: any) {
+  async validate(payload: JwtPayload) {
     const user = await this.usersService.findById(payload.sub);
     if (!user) {
       throw new UnauthorizedException();
     }
-    return { userId: user._id, roles: user.roles };
+    return {
+      userId: (user._id as { toString(): string }).toString(),
+      roles: user.roles,
+    };
   }
 }

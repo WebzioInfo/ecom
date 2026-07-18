@@ -38,7 +38,12 @@ export class Order {
   @Prop({ required: true, min: 0 })
   totalAmount: number;
 
-  @Prop({ type: String, enum: OrderStatus, default: OrderStatus.PENDING, index: true })
+  @Prop({
+    type: String,
+    enum: OrderStatus,
+    default: OrderStatus.PENDING,
+    index: true,
+  })
   status: OrderStatus;
 }
 

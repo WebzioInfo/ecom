@@ -59,25 +59,43 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const preferredPort = configService.get<number>('port') ?? parseInt(process.env.PORT ?? '4000', 10) ?? 4000;
+  const preferredPort =
+    configService.get<number>('port') ??
+    parseInt(process.env.PORT ?? '4000', 10) ??
+    4000;
   const fallbackPort = preferredPort === 4000 ? 4001 : preferredPort + 1;
 
   try {
     await app.listen(preferredPort);
-    Logger.log(`Application is running on: http://localhost:${preferredPort}/api/v1`);
-    Logger.log(`Swagger docs available at: http://localhost:${preferredPort}/api/docs`);
+    Logger.log(
+      `Application is running on: http://localhost:${preferredPort}/api/v1`,
+    );
+    Logger.log(
+      `Swagger docs available at: http://localhost:${preferredPort}/api/docs`,
+    );
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException;
     if (nodeError?.code === 'EADDRINUSE') {
-      Logger.warn(`Port ${preferredPort} is already in use. Attempting fallback port ${fallbackPort}...`);
+      Logger.warn(
+        `Port ${preferredPort} is already in use. Attempting fallback port ${fallbackPort}...`,
+      );
       await app.listen(fallbackPort);
-      Logger.log(`Application is running on: http://localhost:${fallbackPort}/api/v1`);
-      Logger.log(`Swagger docs available at: http://localhost:${fallbackPort}/api/docs`);
+      Logger.log(
+        `Application is running on: http://localhost:${fallbackPort}/api/v1`,
+      );
+      Logger.log(
+        `Swagger docs available at: http://localhost:${fallbackPort}/api/docs`,
+      );
     } else {
-      Logger.error('Failed to start application', nodeError?.stack ?? nodeError);
+      Logger.error(
+        'Failed to start application',
+        nodeError?.stack ?? nodeError,
+      );
       process.exit(1);
     }
   }
 }
 
-bootstrap();
+void bootstrap().catch((err) => {
+  Logger.error('Bootstrap failed', err);
+});

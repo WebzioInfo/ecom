@@ -13,11 +13,17 @@ import { CartModule } from './modules/cart/cart.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', load: [configuration] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+      load: [configuration],
+    }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('mongodbUri') || 'mongodb://localhost:27017/ecommerce',
+      useFactory: (configService: ConfigService) => ({
+        uri:
+          configService.get<string>('mongodbUri') ||
+          'mongodb://localhost:27017/ecommerce',
       }),
       inject: [ConfigService],
     }),

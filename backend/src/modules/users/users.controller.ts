@@ -32,7 +32,10 @@ export class UsersController {
   }
 
   @Patch('profile')
-  async updateProfile(@Request() req: AuthRequest, @Body() updateUserDto: UpdateUserDto) {
+  async updateProfile(
+    @Request() req: AuthRequest,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
     return this.usersService.updateProfile(req.user.userId, updateUserDto);
   }
 
@@ -42,12 +45,21 @@ export class UsersController {
   }
 
   @Post('wishlist')
-  async addToWishlist(@Request() req: AuthRequest, @Body() wishlistDto: WishlistDto) {
-    return this.usersService.addToWishlist(req.user.userId, wishlistDto.productId);
+  async addToWishlist(
+    @Request() req: AuthRequest,
+    @Body() wishlistDto: WishlistDto,
+  ) {
+    return this.usersService.addToWishlist(
+      req.user.userId,
+      wishlistDto.productId,
+    );
   }
 
   @Delete('wishlist/:productId')
-  async removeFromWishlist(@Request() req: AuthRequest, @Param('productId') productId: string) {
+  async removeFromWishlist(
+    @Request() req: AuthRequest,
+    @Param('productId') productId: string,
+  ) {
     return this.usersService.removeFromWishlist(req.user.userId, productId);
   }
 }

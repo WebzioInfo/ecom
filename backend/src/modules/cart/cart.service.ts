@@ -17,24 +17,26 @@ export class CartService {
   }
 
   async addToCart(userId: string, productId: string, quantity = 1) {
-    return this.cartModel.findOneAndUpdate(
-      { user: userId },
-      {
-        $setOnInsert: { user: userId },
-        $inc: { 'items.$[item].quantity': quantity },
-        $push: {
-          items: {
-            $each: [{ product: new Types.ObjectId(productId), quantity }],
-            $slice: 0,
+    return this.cartModel
+      .findOneAndUpdate(
+        { user: userId },
+        {
+          $setOnInsert: { user: userId },
+          $inc: { 'items.$[item].quantity': quantity },
+          $push: {
+            items: {
+              $each: [{ product: new Types.ObjectId(productId), quantity }],
+              $slice: 0,
+            },
           },
         },
-      },
-      {
-        new: true,
-        upsert: true,
-        arrayFilters: [{ 'item.product': new Types.ObjectId(productId) }],
-      },
-    ).exec();
+        {
+          new: true,
+          upsert: true,
+          arrayFilters: [{ 'item.product': new Types.ObjectId(productId) }],
+        },
+      )
+      .exec();
   }
 
   async updateCartItem(userId: string, productId: string, quantity: number) {
@@ -74,6 +76,8 @@ export class CartService {
   }
 
   async clearCart(userId: string) {
-    return this.cartModel.findOneAndUpdate({ user: userId }, { items: [] }, { new: true }).exec();
+    return this.cartModel
+      .findOneAndUpdate({ user: userId }, { items: [] }, { new: true })
+      .exec();
   }
 }

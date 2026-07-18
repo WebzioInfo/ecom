@@ -21,6 +21,8 @@ export default () => ({
     apiSecret: process.env.CLOUDINARY_API_SECRET,
   },
   corsWhitelist:
-    process.env.CORS_ORIGINS?.split(',').map((origin) => origin.trim()).filter(Boolean) || [],
+    process.env.CORS_ORIGINS?.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean) || [],
   whatsAppPhone: process.env.WHATSAPP_PHONE,
 });

@@ -5,7 +5,6 @@ import { ConfigService } from '@nestjs/config';
 import { CartService } from '../cart/cart.service';
 import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { Cart } from '../cart/schemas/cart.schema';
 
 @Injectable()
 export class OrdersService {
@@ -16,23 +15,50 @@ export class OrdersService {
   ) {}
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto) {
-    const items = createOrderDto.items?.map((item) => ({
-      product: new Types.ObjectId(item.productId),
-      quantity: item.quantity,
-      priceAtPurchase: item.priceAtPurchase,
-    })) || [];
+    const items =
+      createOrderDto.items?.map((item) => ({
+        product: new Types.ObjectId(item.productId),
+        quantity: item.quantity,
+        priceAtPurchase: item.priceAtPurchase,
+      })) || [];
 
     let orderItems = items;
     if (!items.length) {
       const cart = await this.cartService.getCart(userId);
-      orderItems = cart.items.map((item) => ({
-        product: new Types.ObjectId((item.product as any)._id || item.product),
-        quantity: item.quantity,
-        priceAtPurchase: (item.product as any).price ?? 0,
-      }));
+      orderItems = cart.items.map((item) => {
+        const product = item.product;
+        if (product instanceof Types.ObjectId) {
+          return {
+            product,
+            quantity: item.quantity,
+            priceAtPurchase: 0,
+          };
+        }
+
+        if (typeof product === 'string') {
+          return {
+            product: new Types.ObjectId(product),
+            quantity: item.quantity,
+            priceAtPurchase: 0,
+          };
+        }
+
+        const populatedProduct = product as unknown as {
+          _id: Types.ObjectId;
+          price: number;
+        };
+        return {
+          product: populatedProduct._id,
+          quantity: item.quantity,
+          priceAtPurchase: populatedProduct.price ?? 0,
+        };
+      });
     }
 
-    const totalAmount = orderItems.reduce((sum, item) => sum + item.priceAtPurchase * item.quantity, 0);
+    const totalAmount = orderItems.reduce(
+      (sum, item) => sum + item.priceAtPurchase * item.quantity,
+      0,
+    );
     const order = new this.orderModel({
       user: new Types.ObjectId(userId),
       items: orderItems,
@@ -43,9 +69,11 @@ export class OrdersService {
     const savedOrder = await order.save();
     await this.cartService.clearCart(userId);
 
-    const phone = this.configService.get<string>('WHATSAPP_PHONE')?.replace(/\D/g, '') || '15551234567';
+    const phone =
+      this.configService.get<string>('WHATSAPP_PHONE')?.replace(/\D/g, '') ||
+      '15551234567';
     const message = encodeURIComponent(
-      `Order ID: ${savedOrder._id}\nTotal: $${totalAmount.toFixed(2)}\nView: ${createOrderDto.returnUrl || ''}`,
+      `Order ID: ${savedOrder._id.toString()}\nTotal: $${totalAmount.toFixed(2)}\nView: ${createOrderDto.returnUrl || ''}`,
     );
 
     return {
@@ -55,8 +83,15 @@ export class OrdersService {
   }
 
   async getOrders(userId: string, roles: string[]) {
-    const filter = roles.includes('admin') ? {} : { user: new Types.ObjectId(userId) };
-    return this.orderModel.find(filter).sort({ createdAt: -1 }).populate('items.product').lean().exec();
+    const filter = roles.includes('admin')
+      ? {}
+      : { user: new Types.ObjectId(userId) };
+    return this.orderModel
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .populate('items.product')
+      .lean()
+      .exec();
   }
 
   async getOrderById(userId: string, id: string, roles: string[]) {
@@ -67,7 +102,22 @@ export class OrdersService {
       .exec();
 
     if (!order) throw new NotFoundException('Order not found');
-    if (!roles.includes('admin') && order.user.toString() !== userId) {
+    const orderUser = order.user;
+    let orderUserId = '';
+    if (orderUser instanceof Types.ObjectId) {
+      orderUserId = orderUser.toString();
+    } else if (typeof orderUser === 'string') {
+      orderUserId = orderUser;
+    } else if (
+      orderUser &&
+      typeof orderUser === 'object' &&
+      '_id' in orderUser
+    ) {
+      const userObj = orderUser as { _id: Types.ObjectId | string };
+      orderUserId = userObj._id.toString();
+    }
+
+    if (!roles.includes('admin') && orderUserId !== userId) {
       throw new NotFoundException('Order not found');
     }
     return order;

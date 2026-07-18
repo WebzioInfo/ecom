@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
-import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -39,7 +38,10 @@ export class UsersService {
   }
 
   async getWishlist(userId: string) {
-    const user = await this.userModel.findById(userId).populate('wishlist').exec();
+    const user = await this.userModel
+      .findById(userId)
+      .populate('wishlist')
+      .exec();
     if (!user) throw new NotFoundException('User not found');
     return user.wishlist;
   }

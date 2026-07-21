@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3006,
+    port: 3007,
     strictPort: true,
   },
 });
+// Trigger dev server restart

@@ -4,18 +4,37 @@ import { useAuthStore } from '../store/useAuthStore';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  role?: 'admin' | 'user';
+  requiredRoles?: string[];
 }
 
-export const ProtectedRoute = ({ children, role }: ProtectedRouteProps) => {
-  const { isAuthenticated, user } = useAuthStore();
+export const ProtectedRoute = ({ children, requiredRoles }: ProtectedRouteProps) => {
+  const { isAuthenticated, isInitializing, user } = useAuthStore();
+
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-indigo-400">
+        <div className="w-8 h-8 border-2 border-slate-800 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (role && !user?.roles.includes(role)) {
-    return <Navigate to="/" replace />;
+  if (requiredRoles && requiredRoles.length > 0) {
+    const userRoles = (user?.roles || []).map((r) => r.toLowerCase());
+    
+    // Check if user has ANY of the required roles
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role.toLowerCase()));
+    
+    if (!hasRole) {
+      // Redirect based on what they are
+      if (userRoles.includes('super_admin') || userRoles.includes('admin')) {
+        return <Navigate to="/super-admin" replace />;
+      }
+      return <Navigate to="/admin" replace />;
+    }
   }
 
   return children;

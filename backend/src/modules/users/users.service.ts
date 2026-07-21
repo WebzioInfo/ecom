@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { User, UserDocument, Role } from './schemas/user.schema';
 
 @Injectable()
 export class UsersService {
@@ -29,40 +29,15 @@ export class UsersService {
     return user;
   }
 
+  async findByStore(storeId: string) {
+    return this.userModel.find({ storeId: new Types.ObjectId(storeId) }).select('-password').exec();
+  }
+
   async findByResetToken(token: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ resetToken: token }).exec();
   }
 
   async findByVerificationToken(token: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ verificationToken: token }).exec();
-  }
-
-  async getWishlist(userId: string) {
-    const user = await this.userModel
-      .findById(userId)
-      .populate('wishlist')
-      .exec();
-    if (!user) throw new NotFoundException('User not found');
-    return user.wishlist;
-  }
-
-  async addToWishlist(userId: string, productId: string) {
-    const user = await this.userModel.findByIdAndUpdate(
-      userId,
-      { $addToSet: { wishlist: new Types.ObjectId(productId) } },
-      { new: true },
-    );
-    if (!user) throw new NotFoundException('User not found');
-    return user.wishlist;
-  }
-
-  async removeFromWishlist(userId: string, productId: string) {
-    const user = await this.userModel.findByIdAndUpdate(
-      userId,
-      { $pull: { wishlist: new Types.ObjectId(productId) } },
-      { new: true },
-    );
-    if (!user) throw new NotFoundException('User not found');
-    return user.wishlist;
   }
 }

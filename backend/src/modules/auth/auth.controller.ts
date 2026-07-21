@@ -1,16 +1,30 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { UsersService } from '../users/users.service';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
@@ -54,5 +68,29 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify user email' })
   async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
     return this.authService.verifyEmail(verifyEmailDto.token);
+  }
+
+  /**
+   * Validates the current JWT and returns the authenticated user's profile.
+   * Frontend calls this on app startup to restore session from stored token.
+   */
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current authenticated user profile' })
+  @ApiResponse({ status: 200, description: 'Returns current user profile' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired token' })
+  async getMe(@Request() req: { user: { userId: string; roles: string[] } }) {
+    const user = await this.usersService.findById(req.user.userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return {
+      _id: (user._id as { toString(): string }).toString(),
+      name: user.name,
+      email: user.email,
+      roles: user.roles,
+      isVerified: user.isVerified,
+    };
   }
 }

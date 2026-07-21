@@ -1,11 +1,18 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type UserDocument = User & Document;
 
 export enum Role {
-  USER = 'user',
+  SUPER_ADMIN = 'super_admin',
+  COMPANY_ADMIN = 'company_admin',
+  MANAGER = 'manager',
+  STAFF = 'staff',
+  SUPPORT = 'support',
+  DEVELOPER = 'developer',
+  // Backward compatibility alias
   ADMIN = 'admin',
+  USER = 'user',
 }
 
 @Schema({ timestamps: true })
@@ -19,8 +26,17 @@ export class User {
   @Prop({ required: true })
   password?: string;
 
-  @Prop({ type: [String], enum: Role, default: [Role.USER] })
+  @Prop({ type: Types.ObjectId, ref: 'Store', index: true, default: null })
+  storeId?: Types.ObjectId;
+
+  @Prop({ type: [String], enum: Role, default: [Role.STAFF] })
   roles: Role[];
+
+  @Prop({ type: [String], default: ['*'] })
+  permissions: string[];
+
+  @Prop({ default: true })
+  isActive: boolean;
 
   @Prop({ default: false })
   isVerified: boolean;
@@ -34,11 +50,9 @@ export class User {
   @Prop()
   resetTokenExpiration?: Date;
 
-  @Prop({ type: [{ type: 'ObjectId', ref: 'Product' }], default: [] })
-  wishlist?: string[];
-
   @Prop()
   refreshToken?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.index({ storeId: 1, email: 1 });

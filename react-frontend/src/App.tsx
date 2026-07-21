@@ -1,99 +1,98 @@
-import { Routes, Route } from 'react-router-dom';
-import { CustomerLayout } from './layouts/CustomerLayout';
-import { AdminLayout } from './layouts/AdminLayout';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { StoreAdminLayout } from './layouts/StoreAdminLayout';
+import { SuperAdminLayout } from './layouts/SuperAdminLayout';
 import { ProtectedRoute } from './hooks/useProtectedRoute';
-import LandingPage from './pages/LandingPage';
-import ProductsPage from './pages/ProductsPage';
-import ProductDetailsPage from './pages/ProductDetailsPage';
-import CartPage from './pages/CartPage';
-import CheckoutPage from './pages/CheckoutPage';
+import SuperAdminProtectedRoute from './hooks/useSuperAdminProtectedRoute';
+import { useAuthStore } from './store/useAuthStore';
 import Login from './pages/Login';
-import Register from './pages/Register';
-import WishlistPage from './pages/WishlistPage';
-import ProfilePage from './pages/ProfilePage';
-import OrdersPage from './pages/OrdersPage';
-import OrderDetailsPage from './pages/OrderDetailsPage';
+import SuperAdminLogin from './pages/SuperAdminLogin';
+import SuperAdminDashboardPage from './pages/SuperAdminDashboardPage';
+import StoresPage from './pages/StoresPage';
+import StoreDetailsPage from './pages/StoreDetailsPage';
+import AdminsManager from './pages/AdminsManager';
+import PlansListPage from './pages/plans/PlansListPage';
+import PlanCreateEditPage from './pages/plans/PlanCreateEditPage';
+import SystemHealth from './pages/SystemHealth';
+import PlatformSettings from './pages/PlatformSettings';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminProductsPage from './pages/AdminProductsPage';
-import AdminProductDetailsPage from './pages/AdminProductDetailsPage';
+import AdminProductCreatePage from './pages/AdminProductCreatePage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
 import AdminOrderDetailsPage from './pages/AdminOrderDetailsPage';
+import InventoryPage from './pages/InventoryPage';
+import CustomersPage from './pages/CustomersPage';
+import MarketingPage from './pages/MarketingPage';
+import DeveloperPortalPage from './pages/DeveloperPortalPage';
+import AuditLogsPage from './pages/AuditLogsPage';
+import StaffPage from './pages/StaffPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 export default function App() {
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+      navigate('/login', { replace: true });
+    };
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, [logout, navigate]);
+
   return (
     <Routes>
-      <Route path="/" element={<CustomerLayout />}>
-        <Route index element={<LandingPage />} />
-        <Route path="products" element={<ProductsPage />} />
-        <Route path="products/:id" element={<ProductDetailsPage />} />
-        <Route
-          path="cart"
-          element={
-            <ProtectedRoute>
-              <CartPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="checkout"
-          element={
-            <ProtectedRoute>
-              <CheckoutPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="wishlist"
-          element={
-            <ProtectedRoute>
-              <WishlistPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="orders"
-          element={
-            <ProtectedRoute>
-              <OrdersPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="orders/:id"
-          element={
-            <ProtectedRoute>
-              <OrderDetailsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/super-admin/login" element={<SuperAdminLogin />} />
+
+      {/* SUPER ADMIN PORTAL (Platform Global Operations) */}
+      <Route
+        path="/super-admin"
+        element={
+          <SuperAdminProtectedRoute />
+        }
+      >
+        <Route element={<SuperAdminLayout />}>
+          <Route index element={<SuperAdminDashboardPage />} />
+          <Route path="dashboard" element={<SuperAdminDashboardPage />} />
+          <Route path="stores" element={<StoresPage />} />
+          <Route path="stores/:id" element={<StoreDetailsPage />} />
+          <Route path="admins" element={<AdminsManager />} />
+          <Route path="plans" element={<PlansListPage />} />
+          <Route path="plans/create" element={<PlanCreateEditPage />} />
+          <Route path="plans/:id/edit" element={<PlanCreateEditPage />} />
+          <Route path="analytics" element={<div>Platform Analytics (WIP)</div>} />
+          <Route path="system" element={<SystemHealth />} />
+          <Route path="settings" element={<PlatformSettings />} />
+        </Route>
       </Route>
 
+      {/* STORE ADMIN PORTAL (Tenant Operations) */}
       <Route
         path="/admin"
         element={
-          <ProtectedRoute role="admin">
-            <AdminLayout />
+          <ProtectedRoute>
+            <StoreAdminLayout />
           </ProtectedRoute>
         }
       >
         <Route index element={<AdminDashboardPage />} />
         <Route path="products" element={<AdminProductsPage />} />
-        <Route path="products/:id" element={<AdminProductDetailsPage />} />
+        <Route path="products/new" element={<AdminProductCreatePage />} />
+        <Route path="products/:id/edit" element={<AdminProductCreatePage />} />
         <Route path="orders" element={<AdminOrdersPage />} />
         <Route path="orders/:id" element={<AdminOrderDetailsPage />} />
+        <Route path="inventory" element={<InventoryPage />} />
+        <Route path="customers" element={<CustomersPage />} />
+        <Route path="marketing" element={<MarketingPage />} />
+        <Route path="developer" element={<DeveloperPortalPage />} />
+        <Route path="audit-logs" element={<AuditLogsPage />} />
+        <Route path="staff" element={<StaffPage />} />
       </Route>
 
+      {/* DEFAULT ROUTE REDIRECTS TO LOGIN OR ROLE-BASED DASHBOARD IN PROTECTED ROUTE */}
+      <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

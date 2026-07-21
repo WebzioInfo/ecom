@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPayload } from '../types';
+import axios from 'axios';
+import { useSuperAdminAuthStore } from '../store/useSuperAdminAuthStore';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -10,14 +12,40 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const onSuccess = () => {
+  const onSuccess = (data: any) => {
     toast.success('Welcome back!');
-    navigate('/');
+    const userRoles = data.user?.roles || [];
+    if (userRoles.includes('super_admin') || userRoles.includes('admin')) {
+      navigate('/super-admin');
+    } else {
+      navigate('/admin');
+    }
   };
+
+  const setSuperAdminAuth = useSuperAdminAuthStore((state) => state.setAuth);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate({ email, password }, { onSuccess });
+    loginMutation.mutate({ email, password }, { 
+      onSuccess,
+      onError: async (err: any) => {
+        if (err.response?.status === 401) {
+          try {
+            const response = await axios.post(
+              `${import.meta.env.VITE_API_URL}/super-admin/auth/login`,
+              { email, password }
+            );
+            const { user, access_token, refresh_token } = response.data;
+            setSuperAdminAuth(user, access_token, refresh_token);
+            localStorage.setItem('access_token', access_token);
+            toast.success('Welcome back, Super Admin!');
+            navigate('/super-admin/dashboard');
+          } catch (superAdminErr) {
+            // Keep the original error state if super admin login also fails
+          }
+        }
+      }
+    });
   };
 
   return (
@@ -75,6 +103,11 @@ export default function Login() {
             Create an account
           </Link>
         </p>
+        <div className="mt-4 border-t border-slate-100 pt-4 text-center">
+          <Link to="/super-admin/login" className="text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors">
+            Access Super Admin Portal &rarr;
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -46,6 +46,12 @@ async function bootstrap() {
       'Accept',
       'Origin',
       'X-Requested-With',
+      'X-Store-Id',
+      'x-store-id',
+      'X-Tenant-Id',
+      'x-tenant-id',
+      'X-API-Key',
+      'x-api-key',
     ],
   });
 

@@ -1,25 +1,63 @@
 import { create } from 'zustand';
+import { authApi } from '../api/auth.api';
 
-interface User {
+export interface AuthUser {
   id: string;
   email: string;
   name: string;
   roles: string[];
+  permissions?: string[];
+  storeId?: string;
 }
 
 interface AuthState {
-  user: User | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
-  setUser: (user: User | null) => void;
+  isInitializing: boolean;
+  setUser: (user: AuthUser | null) => void;
   logout: () => void;
+  initializeAuth: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
+  isInitializing: true,
+
   setUser: (user) => set({ user, isAuthenticated: !!user }),
+
   logout: () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('active_store_id');
+    localStorage.removeItem('active_store_data');
     set({ user: null, isAuthenticated: false });
+  },
+
+  initializeAuth: async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      set({ isInitializing: false });
+      return;
+    }
+
+    try {
+      const profile = await authApi.me();
+      const user: AuthUser = {
+        id: profile._id || profile.id || '',
+        email: profile.email,
+        name: profile.name,
+        roles: profile.roles || ['staff'],
+        permissions: profile.permissions || [],
+        storeId: profile.storeId,
+      };
+      set({
+        user,
+        isAuthenticated: true,
+        isInitializing: false,
+      });
+    } catch {
+      localStorage.removeItem('access_token');
+      set({ user: null, isAuthenticated: false, isInitializing: false });
+    }
   },
 }));

@@ -1,16 +1,28 @@
 import {
   IsArray,
-  IsMongoId,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
+  IsString,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { OrderStatus, PaymentStatus } from '../schemas/order.schema';
 
-class OrderItemDto {
-  @IsMongoId()
-  productId: string;
+export class OrderItemDto {
+  @IsString()
+  @IsNotEmpty()
+  product: string;
+
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsString()
+  @IsNotEmpty()
+  sku: string;
 
   @IsNumber()
   @Min(1)
@@ -22,23 +34,58 @@ class OrderItemDto {
 }
 
 export class CreateOrderDto {
+  @IsString()
+  @IsNotEmpty()
+  storeId: string;
+
+  @IsString()
+  @IsOptional()
+  customerId?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  customerName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  customerEmail: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
 
-  @IsNotEmpty()
-  customerName: string;
+  @IsNumber()
+  @Min(0)
+  totalAmount: number;
 
-  @IsNotEmpty()
-  shippingAddress: string;
+  @IsString()
+  @IsOptional()
+  paymentMethod?: string;
 
-  @IsNotEmpty()
-  phone: string;
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
 
-  @IsNotEmpty()
-  paymentMethod: string;
+export class UpdateOrderStatusDto {
+  @IsEnum(OrderStatus)
+  @IsOptional()
+  status?: OrderStatus;
 
-  @IsNotEmpty()
-  returnUrl: string;
+  @IsEnum(PaymentStatus)
+  @IsOptional()
+  paymentStatus?: PaymentStatus;
+
+  @IsString()
+  @IsOptional()
+  trackingNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  carrier?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

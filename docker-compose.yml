@@ -11,7 +11,7 @@ services:
       - PORT=4000
       - MONGODB_URI=mongodb://mongodb:27017/ecommerce
       - JWT_ACCESS_SECRET=local_access_secret_123
-      - CORS_ORIGINS=http://localhost:3006
+      - CORS_ORIGINS=http://localhost:3007
     depends_on:
       - mongodb
     networks:
@@ -22,7 +22,7 @@ services:
       context: ./react-frontend
       dockerfile: Dockerfile
     ports:
-      - "3006:80"
+      - "3007:80"
     depends_on:
       - backend
     networks:

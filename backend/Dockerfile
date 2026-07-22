@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 
 # Copy only production dependencies and built files
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 
 # Security best practice: avoid running as root

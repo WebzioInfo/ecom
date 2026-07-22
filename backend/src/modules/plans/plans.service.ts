@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Plan, PlanDocument } from './schemas/plan.schema';
@@ -10,16 +14,23 @@ export class PlansService {
   constructor(@InjectModel(Plan.name) private planModel: Model<PlanDocument>) {}
 
   async create(createPlanDto: CreatePlanDto): Promise<Plan> {
-    const existingPlan = await this.planModel.findOne({ code: createPlanDto.code });
+    const existingPlan = await this.planModel.findOne({
+      code: createPlanDto.code,
+    });
     if (existingPlan) {
-      throw new ConflictException(`Plan with code ${createPlanDto.code} already exists`);
+      throw new ConflictException(
+        `Plan with code ${createPlanDto.code} already exists`,
+      );
     }
     const createdPlan = new this.planModel(createPlanDto);
     return createdPlan.save();
   }
 
   async findAll(query: any = {}): Promise<Plan[]> {
-    return this.planModel.find(query).sort({ displayOrder: 1, createdAt: -1 }).exec();
+    return this.planModel
+      .find(query)
+      .sort({ displayOrder: 1, createdAt: -1 })
+      .exec();
   }
 
   async findOne(id: string): Promise<Plan> {
@@ -32,9 +43,14 @@ export class PlansService {
 
   async update(id: string, updatePlanDto: UpdatePlanDto): Promise<Plan> {
     if (updatePlanDto.code) {
-      const existingPlan = await this.planModel.findOne({ code: updatePlanDto.code, _id: { $ne: id } });
+      const existingPlan = await this.planModel.findOne({
+        code: updatePlanDto.code,
+        _id: { $ne: id },
+      });
       if (existingPlan) {
-        throw new ConflictException(`Plan with code ${updatePlanDto.code} already exists`);
+        throw new ConflictException(
+          `Plan with code ${updatePlanDto.code} already exists`,
+        );
       }
     }
     const updatedPlan = await this.planModel

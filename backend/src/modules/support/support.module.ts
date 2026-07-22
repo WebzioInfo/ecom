@@ -6,10 +6,10 @@ import { Ticket, TicketSchema } from './schemas/ticket.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Ticket.name, schema: TicketSchema }])
+    MongooseModule.forFeature([{ name: Ticket.name, schema: TicketSchema }]),
   ],
   controllers: [SupportController],
   providers: [SupportService],
-  exports: [SupportService]
+  exports: [SupportService],
 })
 export class SupportModule {}

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
@@ -29,7 +39,11 @@ export class CustomersController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    return this.customersService.findByStore(storeId, { search, page: +page, limit: +limit });
+    return this.customersService.findByStore(storeId, {
+      search,
+      page: +page,
+      limit: +limit,
+    });
   }
 
   @Get(':id')

@@ -18,7 +18,11 @@ export class PlatformNotification {
   @Prop({ required: true })
   message: string;
 
-  @Prop({ type: String, enum: NotificationType, default: NotificationType.INFO })
+  @Prop({
+    type: String,
+    enum: NotificationType,
+    default: NotificationType.INFO,
+  })
   type: NotificationType;
 
   @Prop({ type: Types.ObjectId, ref: 'Store', index: true })
@@ -28,5 +32,6 @@ export class PlatformNotification {
   isRead: boolean;
 }
 
-export const NotificationSchema = SchemaFactory.createForClass(PlatformNotification);
+export const NotificationSchema =
+  SchemaFactory.createForClass(PlatformNotification);
 NotificationSchema.index({ storeId: 1, isRead: 1 });

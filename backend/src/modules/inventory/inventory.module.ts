@@ -6,7 +6,9 @@ import { Warehouse, WarehouseSchema } from './schemas/warehouse.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Warehouse.name, schema: WarehouseSchema }]),
+    MongooseModule.forFeature([
+      { name: Warehouse.name, schema: WarehouseSchema },
+    ]),
   ],
   controllers: [InventoryController],
   providers: [InventoryService],

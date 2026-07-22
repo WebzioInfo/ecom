@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StoresService } from './stores.service';
 import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
@@ -30,7 +40,12 @@ export class StoresController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    return this.storesService.findAll({ search, status, page: +page, limit: +limit });
+    return this.storesService.findAll({
+      search,
+      status,
+      page: +page,
+      limit: +limit,
+    });
   }
 
   @Get('analytics/global')
@@ -54,7 +69,9 @@ export class StoresController {
 
   @Get(':id/full-details')
   @Roles('super_admin')
-  @ApiOperation({ summary: 'Get complete store details including plans and metrics' })
+  @ApiOperation({
+    summary: 'Get complete store details including plans and metrics',
+  })
   getFullDetails(@Param('id') id: string) {
     return this.storesService.getFullDetails(id);
   }
@@ -69,13 +86,18 @@ export class StoresController {
   @Patch(':id/transfer-ownership')
   @Roles('super_admin')
   @ApiOperation({ summary: 'Transfer ownership of a store to a new user' })
-  transferOwnership(@Param('id') id: string, @Body('newOwnerId') newOwnerId: string) {
+  transferOwnership(
+    @Param('id') id: string,
+    @Body('newOwnerId') newOwnerId: string,
+  ) {
     return this.storesService.transferOwnership(id, newOwnerId);
   }
 
   @Patch(':id')
   @Roles('super_admin', 'admin', 'company_admin')
-  @ApiOperation({ summary: 'Update store configuration, branding, or settings' })
+  @ApiOperation({
+    summary: 'Update store configuration, branding, or settings',
+  })
   update(@Param('id') id: string, @Body() updateStoreDto: UpdateStoreDto) {
     return this.storesService.update(id, updateStoreDto);
   }

@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsObject,
+} from 'class-validator';
 import { StoreStatus } from '../schemas/store.schema';
 
 export class CreateStoreDto {

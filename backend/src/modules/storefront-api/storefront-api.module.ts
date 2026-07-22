@@ -7,12 +7,7 @@ import { OrdersModule } from '../orders/orders.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 
 @Module({
-  imports: [
-    StoresModule,
-    ProductsModule,
-    OrdersModule,
-    ApiKeysModule,
-  ],
+  imports: [StoresModule, ProductsModule, OrdersModule, ApiKeysModule],
   controllers: [StorefrontApiController],
   providers: [StorefrontApiService],
 })

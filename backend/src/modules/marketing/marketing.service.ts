@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Coupon, CouponDocument, DiscountType } from './schemas/coupon.schema';
@@ -17,7 +21,9 @@ export class MarketingService {
     });
 
     if (existing) {
-      throw new BadRequestException(`Coupon code '${dto.code}' already exists for this store`);
+      throw new BadRequestException(
+        `Coupon code '${dto.code}' already exists for this store`,
+      );
     }
 
     const coupon = new this.couponModel({
@@ -55,7 +61,9 @@ export class MarketingService {
     }
 
     if (cartTotal < coupon.minOrderAmount) {
-      throw new BadRequestException(`Minimum order amount of $${coupon.minOrderAmount} required`);
+      throw new BadRequestException(
+        `Minimum order amount of $${coupon.minOrderAmount} required`,
+      );
     }
 
     let discountAmount = 0;
@@ -75,7 +83,9 @@ export class MarketingService {
   }
 
   async update(id: string, dto: UpdateCouponDto): Promise<Coupon> {
-    const coupon = await this.couponModel.findByIdAndUpdate(id, { $set: dto }, { new: true }).exec();
+    const coupon = await this.couponModel
+      .findByIdAndUpdate(id, { $set: dto }, { new: true })
+      .exec();
     if (!coupon) throw new NotFoundException(`Coupon #${id} not found`);
     return coupon;
   }

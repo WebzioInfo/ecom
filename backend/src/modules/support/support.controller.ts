@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SupportService } from './support.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -21,7 +31,11 @@ export class SupportController {
   @Roles('company_admin', 'admin', 'staff')
   @ApiOperation({ summary: 'Store Admin: Create a new support ticket' })
   createTicket(@Request() req: any, @Body() createTicketDto: CreateTicketDto) {
-    return this.supportService.createTicket(req.user.storeId, req.user.userId, createTicketDto);
+    return this.supportService.createTicket(
+      req.user.storeId,
+      req.user.userId,
+      createTicketDto,
+    );
   }
 
   @Get('tenant')
@@ -41,10 +55,22 @@ export class SupportController {
   @Post('tenant/:id/reply')
   @Roles('company_admin', 'admin', 'staff')
   @ApiOperation({ summary: 'Store Admin: Reply to a ticket' })
-  replyToTicketStore(@Request() req: any, @Param('id') id: string, @Body() replyDto: ReplyTicketDto) {
+  replyToTicketStore(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() replyDto: ReplyTicketDto,
+  ) {
     // Determine exact role from JWT
-    const role = req.user.roles.includes('company_admin') ? 'COMPANY_ADMIN' : 'STAFF';
-    return this.supportService.replyToTicket(id, req.user.userId, role, replyDto, req.user.storeId);
+    const role = req.user.roles.includes('company_admin')
+      ? 'COMPANY_ADMIN'
+      : 'STAFF';
+    return this.supportService.replyToTicket(
+      id,
+      req.user.userId,
+      role,
+      replyDto,
+      req.user.storeId,
+    );
   }
 
   // ─── Super Admin Routes ────────────────────────────────────────────────────────
@@ -55,7 +81,7 @@ export class SupportController {
   getAllTickets(
     @Query('status') status?: TicketStatus,
     @Query('type') type?: string,
-    @Query('storeId') storeId?: string
+    @Query('storeId') storeId?: string,
   ) {
     return this.supportService.getAllTickets({ status, type, storeId });
   }
@@ -70,21 +96,38 @@ export class SupportController {
   @Post('global/:id/reply')
   @Roles('super_admin')
   @ApiOperation({ summary: 'Super Admin: Reply to a ticket' })
-  replyToTicketGlobal(@Request() req: any, @Param('id') id: string, @Body() replyDto: ReplyTicketDto) {
-    return this.supportService.replyToTicket(id, req.user.userId, 'SUPER_ADMIN', replyDto);
+  replyToTicketGlobal(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() replyDto: ReplyTicketDto,
+  ) {
+    return this.supportService.replyToTicket(
+      id,
+      req.user.userId,
+      'SUPER_ADMIN',
+      replyDto,
+    );
   }
 
   @Patch('global/:id/status')
   @Roles('super_admin')
   @ApiOperation({ summary: 'Super Admin: Update ticket status' })
-  updateTicketStatus(@Param('id') id: string, @Body('status') status: TicketStatus) {
+  updateTicketStatus(
+    @Param('id') id: string,
+    @Body('status') status: TicketStatus,
+  ) {
     return this.supportService.updateTicketStatus(id, status);
   }
 
   @Patch('global/:id/assign')
   @Roles('super_admin')
-  @ApiOperation({ summary: 'Super Admin: Assign ticket to self or another super admin' })
-  assignTicket(@Param('id') id: string, @Body('superAdminId') superAdminId: string) {
+  @ApiOperation({
+    summary: 'Super Admin: Assign ticket to self or another super admin',
+  })
+  assignTicket(
+    @Param('id') id: string,
+    @Body('superAdminId') superAdminId: string,
+  ) {
     return this.supportService.assignTicket(id, superAdminId);
   }
 }

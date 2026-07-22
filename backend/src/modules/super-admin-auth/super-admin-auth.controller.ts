@@ -36,7 +36,10 @@ export class SuperAdminAuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Super Admin login' })
-  async login(@Body() loginDto: SuperAdminLoginDto, @Req() req: ExpressRequest) {
+  async login(
+    @Body() loginDto: SuperAdminLoginDto,
+    @Req() req: ExpressRequest,
+  ) {
     const clientIp =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       req.socket?.remoteAddress ||

@@ -44,7 +44,7 @@ export class SuperAdminSeederService implements OnApplicationBootstrap {
         emailVerified: true,
         isActive: true,
         mustChangePassword: false,
-      } as any);
+      });
 
       this.logger.log('✅ Default Super Admin created successfully.');
       this.logger.log(`   Name:  ${this.DEFAULT_NAME}`);

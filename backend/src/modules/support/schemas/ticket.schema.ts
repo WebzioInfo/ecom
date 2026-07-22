@@ -8,7 +8,11 @@ export class TicketMessage {
   @Prop({ type: Types.ObjectId, required: true })
   senderId: Types.ObjectId;
 
-  @Prop({ type: String, enum: ['SUPER_ADMIN', 'COMPANY_ADMIN', 'STAFF'], required: true })
+  @Prop({
+    type: String,
+    enum: ['SUPER_ADMIN', 'COMPANY_ADMIN', 'STAFF'],
+    required: true,
+  })
   senderRole: string;
 
   @Prop({ required: true })

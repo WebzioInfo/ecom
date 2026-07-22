@@ -5,7 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import { SuperAdminsService } from '../../super-admins/super-admins.service';
 
 @Injectable()
-export class SuperAdminJwtStrategy extends PassportStrategy(Strategy, 'super-admin-jwt') {
+export class SuperAdminJwtStrategy extends PassportStrategy(
+  Strategy,
+  'super-admin-jwt',
+) {
   constructor(
     private readonly configService: ConfigService,
     private readonly superAdminsService: SuperAdminsService,
@@ -22,7 +25,9 @@ export class SuperAdminJwtStrategy extends PassportStrategy(Strategy, 'super-adm
   async validate(payload: any) {
     // Only allow tokens explicitly marked as SUPER_ADMIN
     if (payload.type !== 'SUPER_ADMIN') {
-      throw new UnauthorizedException('Invalid token type for Super Admin endpoint');
+      throw new UnauthorizedException(
+        'Invalid token type for Super Admin endpoint',
+      );
     }
 
     const admin = await this.superAdminsService.findById(payload.sub);

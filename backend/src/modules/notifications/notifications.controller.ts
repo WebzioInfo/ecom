@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -15,7 +24,9 @@ export class NotificationsController {
 
   @Post()
   @Roles('super_admin')
-  @ApiOperation({ summary: 'Super Admin: Send a targeted or global notification' })
+  @ApiOperation({
+    summary: 'Super Admin: Send a targeted or global notification',
+  })
   create(@Body() createDto: CreateNotificationDto) {
     return this.notificationsService.create(createDto);
   }
@@ -43,7 +54,9 @@ export class NotificationsController {
 
   @Patch('tenant/read-all')
   @Roles('company_admin', 'admin', 'staff')
-  @ApiOperation({ summary: 'Store Admin: Mark all store notifications as read' })
+  @ApiOperation({
+    summary: 'Store Admin: Mark all store notifications as read',
+  })
   markAllAsRead(@Request() req: any) {
     return this.notificationsService.markAllAsRead(req.user.storeId);
   }

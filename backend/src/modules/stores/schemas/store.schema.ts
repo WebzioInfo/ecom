@@ -78,7 +78,12 @@ export class Store {
   @Prop()
   customDomain?: string;
 
-  @Prop({ type: String, enum: StoreStatus, default: StoreStatus.ACTIVE, index: true })
+  @Prop({
+    type: String,
+    enum: StoreStatus,
+    default: StoreStatus.ACTIVE,
+    index: true,
+  })
   status: StoreStatus;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })

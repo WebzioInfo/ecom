@@ -16,7 +16,9 @@ import { SuperAdminJwtStrategy } from './strategies/super-admin-jwt.strategy';
         secret: configService.get<string>('JWT_ACCESS_SECRET')!, // guaranteed string at runtime
         signOptions: {
           // Cast to acceptable type (StringValue)
-          expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES') as unknown as StringValue,
+          expiresIn: configService.get<string>(
+            'JWT_ACCESS_EXPIRES',
+          ) as unknown as StringValue,
         },
       }),
       inject: [ConfigService],
@@ -26,6 +28,4 @@ import { SuperAdminJwtStrategy } from './strategies/super-admin-jwt.strategy';
   providers: [SuperAdminAuthService, SuperAdminJwtStrategy],
   exports: [SuperAdminAuthService],
 })
-
 export class SuperAdminAuthModule {}
-

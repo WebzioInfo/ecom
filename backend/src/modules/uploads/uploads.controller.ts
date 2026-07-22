@@ -30,7 +30,10 @@ export class UploadsController {
       }),
       fileFilter: (req: any, file: any, cb: any) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
-          return cb(new BadRequestException('Only image files are allowed!'), false);
+          return cb(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
         }
         cb(null, true);
       },
@@ -43,7 +46,7 @@ export class UploadsController {
     if (!file) {
       throw new BadRequestException('File is not uploaded');
     }
-    
+
     // Using relative URL. The frontend will prepend the API URL if needed,
     // or ServeStaticModule will serve it at /uploads.
     const fileUrl = `/uploads/${file.filename}`;

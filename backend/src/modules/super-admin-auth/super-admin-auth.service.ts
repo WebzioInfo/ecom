@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -33,7 +29,10 @@ export class SuperAdminAuthService {
     }
 
     // 2. Verify password with bcrypt
-    const isPasswordValid = await bcrypt.compare(loginDto.password, admin.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      admin.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -46,7 +45,11 @@ export class SuperAdminAuthService {
     const adminId = (admin._id as { toString(): string }).toString();
 
     // 4. Record login history and update lastLogin
-    await this.superAdminsService.recordLoginHistory(adminId, clientIp, userAgent);
+    await this.superAdminsService.recordLoginHistory(
+      adminId,
+      clientIp,
+      userAgent,
+    );
 
     // 5. Build JWT payload
     const payload = {
@@ -58,12 +61,12 @@ export class SuperAdminAuthService {
 
     // 6. Sign access token & refresh token
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m') as unknown as string,
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m'),
     } as JwtSignOptions);
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES', '30d') as unknown as string,
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES', '30d'),
     } as JwtSignOptions);
 
     this.logger.log(`Super Admin logged in: ${admin.email} from ${clientIp}`);
@@ -111,7 +114,10 @@ export class SuperAdminAuthService {
 
       return {
         access_token: this.jwtService.sign(newPayload, {
-          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m') as unknown as string,
+          expiresIn: this.configService.get<string>(
+            'JWT_ACCESS_EXPIRES',
+            '15m',
+          ),
         } as JwtSignOptions),
         token_type: 'Bearer',
       };

@@ -16,15 +16,20 @@ export class TenantInterceptor implements NestInterceptor {
     const apiKeyHeader = request.headers['x-api-key'];
 
     if (request.user) {
-      const userRoles = (request.user.roles || []).map((r: string) => r.toLowerCase());
-      const isSuperAdmin = userRoles.includes('super_admin') || userRoles.includes('admin');
+      const userRoles = (request.user.roles || []).map((r: string) =>
+        r.toLowerCase(),
+      );
+      const isSuperAdmin =
+        userRoles.includes('super_admin') || userRoles.includes('admin');
 
       if (!isSuperAdmin) {
         // Strict tenant isolation: Store Admins can ONLY use their assigned storeId
         if (request.user.storeId) {
           request.storeId = request.user.storeId;
         } else {
-          throw new ForbiddenException('Tenant context missing for store admin');
+          throw new ForbiddenException(
+            'Tenant context missing for store admin',
+          );
         }
       } else {
         // Super Admin can override tenant context via header

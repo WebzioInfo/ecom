@@ -7,7 +7,8 @@ import { CreateWarehouseDto, AdjustStockDto } from './dto/inventory.dto';
 @Injectable()
 export class InventoryService {
   constructor(
-    @InjectModel(Warehouse.name) private warehouseModel: Model<WarehouseDocument>,
+    @InjectModel(Warehouse.name)
+    private warehouseModel: Model<WarehouseDocument>,
   ) {}
 
   async createWarehouse(dto: CreateWarehouseDto): Promise<Warehouse> {
@@ -19,7 +20,9 @@ export class InventoryService {
   }
 
   async findWarehousesByStore(storeId: string) {
-    return this.warehouseModel.find({ storeId: new Types.ObjectId(storeId) }).exec();
+    return this.warehouseModel
+      .find({ storeId: new Types.ObjectId(storeId) })
+      .exec();
   }
 
   async adjustStock(dto: AdjustStockDto) {

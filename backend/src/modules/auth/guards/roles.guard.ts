@@ -44,18 +44,25 @@ export class RolesGuard implements CanActivate {
     const requiredRolesLower = requiredRoles.map((r) => r.toLowerCase());
 
     // Super Admin has universal access across all routes
-    if (userRolesLower.includes('super_admin') || userRolesLower.includes('admin')) {
+    if (
+      userRolesLower.includes('super_admin') ||
+      userRolesLower.includes('admin')
+    ) {
       return true;
     }
 
-    const hasRole = requiredRolesLower.some((reqRole) => userRolesLower.includes(reqRole));
+    const hasRole = requiredRolesLower.some((reqRole) =>
+      userRolesLower.includes(reqRole),
+    );
 
     if (!hasRole) {
       this.logger.warn(
         `[RBAC] User ${user.userId} with roles [${user.roles?.join(', ')}] ` +
           `attempted to access route requiring [${requiredRoles.join(', ')}]: ${request.url}`,
       );
-      throw new ForbiddenException('You do not have permission to access this resource');
+      throw new ForbiddenException(
+        'You do not have permission to access this resource',
+      );
     }
 
     return true;

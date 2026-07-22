@@ -18,7 +18,10 @@ export class CustomersService {
     return customer.save();
   }
 
-  async findByStore(storeId: string, query: { search?: string; page?: number; limit?: number }) {
+  async findByStore(
+    storeId: string,
+    query: { search?: string; page?: number; limit?: number },
+  ) {
     const { search, page = 1, limit = 20 } = query;
     const filter: any = { storeId: new Types.ObjectId(storeId) };
 

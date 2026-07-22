@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
@@ -16,18 +20,25 @@ export class StorefrontApiService {
   ) {}
 
   async validateApiKey(apiKey: string) {
-    const keyDoc = await this.apiKeyModel.findOne({ key: apiKey, isActive: true }).exec();
+    const keyDoc = await this.apiKeyModel
+      .findOne({ key: apiKey, isActive: true })
+      .exec();
     if (!keyDoc) {
       throw new UnauthorizedException('Invalid or inactive Store API Key');
     }
     // Update last used timestamp async
-    this.apiKeyModel.updateOne({ _id: keyDoc._id }, { lastUsedAt: new Date() }).exec();
+    this.apiKeyModel
+      .updateOne({ _id: keyDoc._id }, { lastUsedAt: new Date() })
+      .exec();
     return keyDoc;
   }
 
   async getPublicStoreInfo(apiKey: string) {
     const keyDoc = await this.validateApiKey(apiKey);
-    const store = await this.storeModel.findById(keyDoc.storeId).select('-ownerId -apiUsageCount').exec();
+    const store = await this.storeModel
+      .findById(keyDoc.storeId)
+      .select('-ownerId -apiUsageCount')
+      .exec();
     if (!store) {
       throw new NotFoundException('Store not found');
     }
@@ -44,7 +55,15 @@ export class StorefrontApiService {
     };
   }
 
-  async getPublicProducts(apiKey: string, query: { search?: string; category?: string; page?: number; limit?: number }) {
+  async getPublicProducts(
+    apiKey: string,
+    query: {
+      search?: string;
+      category?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
     const keyDoc = await this.validateApiKey(apiKey);
     const { search, category, page = 1, limit = 20 } = query;
     const filter: any = { storeId: keyDoc.storeId, isActive: true };
@@ -58,7 +77,12 @@ export class StorefrontApiService {
 
     const skip = (page - 1) * limit;
     const [products, total] = await Promise.all([
-      this.productModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.productModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
       this.productModel.countDocuments(filter),
     ]);
 
@@ -73,8 +97,11 @@ export class StorefrontApiService {
 
   async getPublicProductBySku(apiKey: string, sku: string) {
     const keyDoc = await this.validateApiKey(apiKey);
-    const product = await this.productModel.findOne({ storeId: keyDoc.storeId, sku, isActive: true }).exec();
-    if (!product) throw new NotFoundException(`Product with SKU '${sku}' not found`);
+    const product = await this.productModel
+      .findOne({ storeId: keyDoc.storeId, sku, isActive: true })
+      .exec();
+    if (!product)
+      throw new NotFoundException(`Product with SKU '${sku}' not found`);
     return product;
   }
 }

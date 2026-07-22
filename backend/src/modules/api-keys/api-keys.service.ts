@@ -14,7 +14,10 @@ export class ApiKeysService {
   async create(dto: CreateApiKeyDto) {
     const rawKey = `wbx_live_${crypto.randomBytes(16).toString('hex')}`;
     const rawSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
-    const secretHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
+    const secretHash = crypto
+      .createHash('sha256')
+      .update(rawSecret)
+      .digest('hex');
 
     const apiKey = new this.apiKeyModel({
       storeId: new Types.ObjectId(dto.storeId),
@@ -64,7 +67,9 @@ export class ApiKeysService {
   }
 
   async revoke(id: string) {
-    const key = await this.apiKeyModel.findByIdAndUpdate(id, { isActive: false }, { new: true }).exec();
+    const key = await this.apiKeyModel
+      .findByIdAndUpdate(id, { isActive: false }, { new: true })
+      .exec();
     if (!key) {
       throw new NotFoundException(`API key #${id} not found`);
     }
@@ -73,9 +78,16 @@ export class ApiKeysService {
 
   async regenerateSecret(id: string) {
     const newSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
-    const secretHash = crypto.createHash('sha256').update(newSecret).digest('hex');
+    const secretHash = crypto
+      .createHash('sha256')
+      .update(newSecret)
+      .digest('hex');
     const key = await this.apiKeyModel
-      .findByIdAndUpdate(id, { secretHash, webhookSecret: newSecret }, { new: true })
+      .findByIdAndUpdate(
+        id,
+        { secretHash, webhookSecret: newSecret },
+        { new: true },
+      )
       .exec();
     if (!key) {
       throw new NotFoundException(`API key #${id} not found`);

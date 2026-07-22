@@ -104,7 +104,11 @@ export class Plan {
   @Prop({ required: true, default: 0 })
   trialDays: number;
 
-  @Prop({ required: true, enum: ['ACTIVE', 'INACTIVE', 'ARCHIVED'], default: 'ACTIVE' })
+  @Prop({
+    required: true,
+    enum: ['ACTIVE', 'INACTIVE', 'ARCHIVED'],
+    default: 'ACTIVE',
+  })
   status: string;
 
   @Prop({ default: false })

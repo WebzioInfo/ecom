@@ -9,9 +9,6 @@ on:
 jobs:
   backend-audit:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js 24
@@ -19,17 +16,14 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: 'backend/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
       - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      - run: npm run lint -w backend
+      - run: npm test -w backend
+      - run: npm run build -w backend
 
   frontend-audit:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: react-frontend
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js 24
@@ -37,6 +31,6 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: 'react-frontend/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
       - run: npm ci
-      - run: npm run build
+      - run: npm run build -w react-frontend

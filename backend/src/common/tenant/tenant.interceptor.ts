@@ -6,14 +6,15 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import { AuthenticatedRequest } from '../interfaces/request.interface';
 
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
-    const storeIdHeader = request.headers['x-store-id'];
-    const apiKeyHeader = request.headers['x-api-key'];
+    const storeIdHeader = request.headers['x-store-id'] as string | undefined;
+    const apiKeyHeader = request.headers['x-api-key'] as string | undefined;
 
     if (request.user) {
       const userRoles = (request.user.roles || []).map((r: string) =>

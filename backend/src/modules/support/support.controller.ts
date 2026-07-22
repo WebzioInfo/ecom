@@ -16,7 +16,8 @@ import { ReplyTicketDto } from './dto/reply-ticket.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { TicketStatus } from './schemas/ticket.schema';
+import { TicketStatus, TicketType } from './schemas/ticket.schema';
+import type { AuthenticatedRequest } from '../../common/interfaces/request.interface';
 
 @ApiTags('Support')
 @ApiBearerAuth()
@@ -30,10 +31,13 @@ export class SupportController {
   @Post('tenant')
   @Roles('company_admin', 'admin', 'staff')
   @ApiOperation({ summary: 'Store Admin: Create a new support ticket' })
-  createTicket(@Request() req: any, @Body() createTicketDto: CreateTicketDto) {
+  createTicket(
+    @Request() req: AuthenticatedRequest,
+    @Body() createTicketDto: CreateTicketDto,
+  ) {
     return this.supportService.createTicket(
-      req.user.storeId,
-      req.user.userId,
+      req.user!.storeId!,
+      req.user!.userId || req.user!.id!,
       createTicketDto,
     );
   }
@@ -41,35 +45,38 @@ export class SupportController {
   @Get('tenant')
   @Roles('company_admin', 'admin', 'staff')
   @ApiOperation({ summary: 'Store Admin: Get all tickets for their store' })
-  getStoreTickets(@Request() req: any) {
-    return this.supportService.getTicketsForStore(req.user.storeId);
+  getStoreTickets(@Request() req: AuthenticatedRequest) {
+    return this.supportService.getTicketsForStore(req.user!.storeId!);
   }
 
   @Get('tenant/:id')
   @Roles('company_admin', 'admin', 'staff')
   @ApiOperation({ summary: 'Store Admin: Get a specific ticket' })
-  getStoreTicket(@Request() req: any, @Param('id') id: string) {
-    return this.supportService.getTicketById(id, req.user.storeId);
+  getStoreTicket(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.supportService.getTicketById(id, req.user!.storeId);
   }
 
   @Post('tenant/:id/reply')
   @Roles('company_admin', 'admin', 'staff')
   @ApiOperation({ summary: 'Store Admin: Reply to a ticket' })
   replyToTicketStore(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() replyDto: ReplyTicketDto,
   ) {
     // Determine exact role from JWT
-    const role = req.user.roles.includes('company_admin')
+    const role = req.user?.roles?.includes('company_admin')
       ? 'COMPANY_ADMIN'
       : 'STAFF';
     return this.supportService.replyToTicket(
       id,
-      req.user.userId,
+      req.user!.userId || req.user!.id!,
       role,
       replyDto,
-      req.user.storeId,
+      req.user!.storeId,
     );
   }
 
@@ -78,12 +85,16 @@ export class SupportController {
   @Get('global')
   @Roles('super_admin')
   @ApiOperation({ summary: 'Super Admin: Get all tickets globally' })
-  getAllTickets(
-    @Query('status') status?: TicketStatus,
+  getTickets(
+    @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('storeId') storeId?: string,
   ) {
-    return this.supportService.getAllTickets({ status, type, storeId });
+    return this.supportService.getTickets({
+      status: status as TicketStatus,
+      type: type as TicketType,
+      storeId,
+    });
   }
 
   @Get('global/:id')
@@ -97,13 +108,13 @@ export class SupportController {
   @Roles('super_admin')
   @ApiOperation({ summary: 'Super Admin: Reply to a ticket' })
   replyToTicketGlobal(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() replyDto: ReplyTicketDto,
   ) {
     return this.supportService.replyToTicket(
       id,
-      req.user.userId,
+      req.user!.userId || req.user!.id!,
       'SUPER_ADMIN',
       replyDto,
     );

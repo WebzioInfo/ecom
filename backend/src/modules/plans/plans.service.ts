@@ -26,7 +26,7 @@ export class PlansService {
     return createdPlan.save();
   }
 
-  async findAll(query: any = {}): Promise<Plan[]> {
+  async findAll(query: Record<string, unknown> = {}): Promise<Plan[]> {
     return this.planModel
       .find(query)
       .sort({ displayOrder: 1, createdAt: -1 })

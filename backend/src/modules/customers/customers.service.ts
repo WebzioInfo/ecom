@@ -23,15 +23,16 @@ export class CustomersService {
     query: { search?: string; page?: number; limit?: number },
   ) {
     const { search, page = 1, limit = 20 } = query;
-    const filter: any = { storeId: new Types.ObjectId(storeId) };
-
-    if (search) {
-      filter.$or = [
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ];
-    }
+    const filter = {
+      storeId: new Types.ObjectId(storeId),
+      ...(search && {
+        $or: [
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+        ],
+      }),
+    };
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([

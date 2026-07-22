@@ -13,6 +13,7 @@ import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Request } from 'express';
 
 @Controller('upload')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,12 +24,20 @@ export class UploadsController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './public/uploads',
-        filename: (req: any, file: any, cb: any) => {
+        filename: (
+          req: Request,
+          file: Express.Multer.File,
+          cb: (error: Error | null, filename: string) => void,
+        ) => {
           const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
           cb(null, uniqueName);
         },
       }),
-      fileFilter: (req: any, file: any, cb: any) => {
+      fileFilter: (
+        req: Request,
+        file: Express.Multer.File,
+        cb: (error: Error | null, acceptFile: boolean) => void,
+      ) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return cb(
             new BadRequestException('Only image files are allowed!'),

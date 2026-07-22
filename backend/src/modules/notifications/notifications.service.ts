@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import {
   PlatformNotification,
   NotificationDocument,
@@ -71,7 +71,7 @@ export class NotificationsService {
   // CRON JOBS for Automated Notifications
 
   // Runs every day at midnight to check expiring subscriptions
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron('0 0 * * *') // EVERY_DAY_AT_MIDNIGHT
   async checkExpiringSubscriptions() {
     this.logger.log('Running daily subscription check...');
     const today = new Date();

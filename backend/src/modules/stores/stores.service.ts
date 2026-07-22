@@ -33,23 +33,20 @@ export class StoresService {
 
   async findAll(query: {
     search?: string;
-    status?: string;
+    status?: StoreStatus;
     page?: number;
     limit?: number;
   }) {
     const { search, status, page = 1, limit = 20 } = query;
-    const filter: any = {};
-
-    if (status) {
-      filter.status = status;
-    }
-
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { slug: { $regex: search, $options: 'i' } },
-      ];
-    }
+    const filter = {
+      ...(status && { status }),
+      ...(search && {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { slug: { $regex: search, $options: 'i' } },
+        ],
+      }),
+    };
 
     const skip = (page - 1) * limit;
     const [stores, total] = await Promise.all([
@@ -122,7 +119,13 @@ export class StoresService {
         this.storeModel.countDocuments(),
         this.storeModel.countDocuments({ status: StoreStatus.ACTIVE }),
         this.storeModel.countDocuments({ status: StoreStatus.SUSPENDED }),
-        this.storeModel.aggregate([
+        this.storeModel.aggregate<{
+          _id: null;
+          totalApiRequests: number;
+          totalStorageMB: number;
+          totalProducts: number;
+          totalOrders: number;
+        }>([
           {
             $group: {
               _id: null,
@@ -147,7 +150,10 @@ export class StoresService {
     };
   }
 
-  async getFullDetails(id: string): Promise<any> {
+  async getFullDetails(id: string): Promise<{
+    store: StoreDocument;
+    metrics: { totalRevenue: number; monthlyRevenue: number };
+  }> {
     const store = await this.storeModel
       .findById(id)
       .populate('ownerId', 'name email roles status lastLogin createdAt')

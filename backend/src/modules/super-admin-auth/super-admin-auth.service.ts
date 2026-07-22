@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { SuperAdminJwtPayload } from '../../common/interfaces/jwt-payload.interface';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -81,7 +82,8 @@ export class SuperAdminAuthService {
         email: admin.email,
         role: admin.role,
         status: admin.status,
-        emailVerified: (admin as any).emailVerified,
+        emailVerified: (admin as unknown as { emailVerified?: boolean })
+          .emailVerified,
         lastLogin: admin.lastLogin,
         avatar: admin.avatar,
       },
@@ -92,10 +94,10 @@ export class SuperAdminAuthService {
 
   async refresh(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify(refreshToken, {
+      const decoded: unknown = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
-
+      const payload = decoded as SuperAdminJwtPayload;
       if (payload.type !== 'SUPER_ADMIN') {
         throw new UnauthorizedException('Invalid token type');
       }
@@ -140,10 +142,11 @@ export class SuperAdminAuthService {
       email: admin.email,
       role: admin.role,
       status: admin.status,
-      emailVerified: (admin as any).emailVerified,
+      emailVerified: (admin as unknown as { emailVerified?: boolean })
+        .emailVerified,
       lastLogin: admin.lastLogin,
       avatar: admin.avatar,
-      createdAt: (admin as any).createdAt,
+      createdAt: (admin as unknown as { createdAt?: Date }).createdAt,
     };
   }
 }

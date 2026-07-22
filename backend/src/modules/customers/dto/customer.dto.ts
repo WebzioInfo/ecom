@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsEmail,
   IsArray,
-  IsNumber,
 } from 'class-validator';
 
 export class CreateCustomerDto {

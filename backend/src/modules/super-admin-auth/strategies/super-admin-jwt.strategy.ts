@@ -4,6 +4,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SuperAdminsService } from '../../super-admins/super-admins.service';
 
+import { SuperAdminJwtPayload } from '../../../common/interfaces/jwt-payload.interface';
+
 @Injectable()
 export class SuperAdminJwtStrategy extends PassportStrategy(
   Strategy,
@@ -22,7 +24,7 @@ export class SuperAdminJwtStrategy extends PassportStrategy(
     });
   }
 
-  async validate(payload: any) {
+  async validate(payload: SuperAdminJwtPayload) {
     // Only allow tokens explicitly marked as SUPER_ADMIN
     if (payload.type !== 'SUPER_ADMIN') {
       throw new UnauthorizedException(

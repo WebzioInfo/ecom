@@ -21,7 +21,7 @@ export class AuditLog {
   entityId?: string;
 
   @Prop({ type: Object })
-  changes?: Record<string, any>;
+  changes: Record<string, unknown>;
 
   @Prop()
   ipAddress?: string;

@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
+import { AuthenticatedRequest } from '../../../common/interfaces/request.interface';
+
 @Injectable()
 export class SuperAdminRolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -20,14 +22,14 @@ export class SuperAdminRolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
 
     if (!user || user.type !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Access denied: Must be a Super Admin');
     }
 
-    const hasRole = requiredRoles.includes(user.role);
+    const hasRole = user.role ? requiredRoles.includes(user.role) : false;
     if (!hasRole) {
       throw new ForbiddenException(
         'You do not have the required Super Admin role',

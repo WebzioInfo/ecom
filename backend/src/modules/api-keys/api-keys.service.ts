@@ -39,7 +39,7 @@ export class ApiKeysService {
       secretKey: rawSecret,
       webhookSecret: rawSecret,
       permissions: saved.permissions,
-      createdAt: (saved as any).createdAt,
+      createdAt: (saved as unknown as { createdAt?: Date }).createdAt,
     };
   }
 

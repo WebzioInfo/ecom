@@ -42,7 +42,7 @@ export class StoresController {
   ) {
     return this.storesService.findAll({
       search,
-      status,
+      status: status as StoreStatus,
       page: +page,
       limit: +limit,
     });

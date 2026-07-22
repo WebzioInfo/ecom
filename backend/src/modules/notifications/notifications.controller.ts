@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import type { AuthenticatedRequest } from '../../common/interfaces/request.interface';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
@@ -34,8 +35,8 @@ export class NotificationsController {
   @Get('tenant')
   @Roles('company_admin', 'admin', 'staff')
   @ApiOperation({ summary: 'Store Admin: Get notifications for their store' })
-  getStoreNotifications(@Request() req: any) {
-    return this.notificationsService.getStoreNotifications(req.user.storeId);
+  getStoreNotifications(@Request() req: AuthenticatedRequest) {
+    return this.notificationsService.getStoreNotifications(req.user!.storeId!);
   }
 
   @Get('global')
@@ -57,7 +58,7 @@ export class NotificationsController {
   @ApiOperation({
     summary: 'Store Admin: Mark all store notifications as read',
   })
-  markAllAsRead(@Request() req: any) {
-    return this.notificationsService.markAllAsRead(req.user.storeId);
+  markAllAsRead(@Request() req: AuthenticatedRequest) {
+    return this.notificationsService.markAllAsRead(req.user!.storeId!);
   }
 }

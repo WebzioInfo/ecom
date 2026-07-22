@@ -3,7 +3,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsEnum,
-  IsNumber,
   IsObject,
 } from 'class-validator';
 import { StoreStatus } from '../schemas/store.schema';
@@ -27,7 +26,7 @@ export class CreateStoreDto {
 
   @IsObject()
   @IsOptional()
-  subscription?: any;
+  subscription?: Record<string, unknown>;
 
   @IsString()
   @IsNotEmpty()
@@ -35,11 +34,11 @@ export class CreateStoreDto {
 
   @IsObject()
   @IsOptional()
-  branding?: any;
+  branding?: Record<string, unknown>;
 
   @IsObject()
   @IsOptional()
-  settings?: any;
+  settings?: Record<string, unknown>;
 }
 
 export class UpdateStoreDto {
@@ -61,13 +60,13 @@ export class UpdateStoreDto {
 
   @IsObject()
   @IsOptional()
-  subscription?: any;
+  subscription?: Record<string, unknown>;
 
   @IsObject()
   @IsOptional()
-  branding?: any;
+  branding?: Record<string, unknown>;
 
   @IsObject()
   @IsOptional()
-  settings?: any;
+  settings?: Record<string, unknown>;
 }

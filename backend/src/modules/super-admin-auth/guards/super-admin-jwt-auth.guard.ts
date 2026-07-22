@@ -11,12 +11,12 @@ export class SuperAdminJwtAuthGuard extends AuthGuard('super-admin-jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any, info: any) {
+  handleRequest<TUser = unknown>(err: unknown, user: TUser): TUser {
     if (err || !user) {
-      throw (
-        err ||
-        new UnauthorizedException('Authentication failed or missing token')
-      );
+      if (err instanceof Error) {
+        throw err;
+      }
+      throw new UnauthorizedException('Authentication failed or missing token');
     }
     return user;
   }

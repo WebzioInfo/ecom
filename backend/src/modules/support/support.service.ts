@@ -10,10 +10,10 @@ import {
   TicketDocument,
   TicketMessage,
   TicketStatus,
+  TicketType,
 } from './schemas/ticket.schema';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { ReplyTicketDto } from './dto/reply-ticket.dto';
-import { Role } from '../users/schemas/user.schema';
 
 @Injectable()
 export class SupportService {
@@ -44,9 +44,14 @@ export class SupportService {
 
     try {
       return await ticket.save();
-    } catch (error: any) {
-      if (error.name === 'ValidationError') {
-        throw new BadRequestException(error.message);
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'name' in error &&
+        error.name === 'ValidationError'
+      ) {
+        throw new BadRequestException((error as Error).message);
       }
       throw error;
     }
@@ -60,15 +65,16 @@ export class SupportService {
       .exec();
   }
 
-  async getAllTickets(query: {
+  async getTickets(query: {
     status?: TicketStatus;
-    type?: string;
+    type?: TicketType;
     storeId?: string;
   }): Promise<Ticket[]> {
-    const filter: any = {};
-    if (query.status) filter.status = query.status;
-    if (query.type) filter.type = query.type;
-    if (query.storeId) filter.storeId = new Types.ObjectId(query.storeId);
+    const filter = {
+      ...(query.status && { status: query.status }),
+      ...(query.type && { type: query.type }),
+      ...(query.storeId && { storeId: new Types.ObjectId(query.storeId) }),
+    };
 
     return this.ticketModel
       .find(filter)
@@ -83,10 +89,10 @@ export class SupportService {
     ticketId: string,
     storeId?: string,
   ): Promise<TicketDocument> {
-    const filter: any = { _id: new Types.ObjectId(ticketId) };
-    if (storeId) {
-      filter.storeId = new Types.ObjectId(storeId);
-    }
+    const filter = {
+      _id: new Types.ObjectId(ticketId),
+      ...(storeId && { storeId: new Types.ObjectId(storeId) }),
+    };
 
     const ticket = await this.ticketModel
       .findOne(filter)

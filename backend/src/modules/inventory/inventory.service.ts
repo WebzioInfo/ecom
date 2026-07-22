@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Warehouse, WarehouseDocument } from './schemas/warehouse.schema';
@@ -25,7 +25,7 @@ export class InventoryService {
       .exec();
   }
 
-  async adjustStock(dto: AdjustStockDto) {
+  adjustStock(dto: AdjustStockDto) {
     // Audit log / Stock level update handler
     return {
       storeId: dto.storeId,

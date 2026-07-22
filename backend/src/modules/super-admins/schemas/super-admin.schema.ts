@@ -59,10 +59,13 @@ export class SuperAdmin extends Document {
 
 export const SuperAdminSchema = SchemaFactory.createForClass(SuperAdmin);
 
-// Hash password before saving (only if modified)
-// Mongoose 9+ supports returning a Promise directly in pre hooks
-SuperAdminSchema.pre('save', async function (this: any) {
-  if (!this.isModified('password')) return;
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-});
+import { HydratedDocument } from 'mongoose';
+
+SuperAdminSchema.pre(
+  'save',
+  async function (this: HydratedDocument<SuperAdmin>) {
+    if (!this.isModified('password')) return;
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  },
+);

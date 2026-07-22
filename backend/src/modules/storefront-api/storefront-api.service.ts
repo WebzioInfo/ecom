@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Store, StoreDocument } from '../stores/schemas/store.schema';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { Order, OrderDocument } from '../orders/schemas/order.schema';
@@ -27,7 +27,7 @@ export class StorefrontApiService {
       throw new UnauthorizedException('Invalid or inactive Store API Key');
     }
     // Update last used timestamp async
-    this.apiKeyModel
+    void this.apiKeyModel
       .updateOne({ _id: keyDoc._id }, { lastUsedAt: new Date() })
       .exec();
     return keyDoc;
@@ -66,14 +66,12 @@ export class StorefrontApiService {
   ) {
     const keyDoc = await this.validateApiKey(apiKey);
     const { search, category, page = 1, limit = 20 } = query;
-    const filter: any = { storeId: keyDoc.storeId, isActive: true };
-
-    if (category) {
-      filter.category = category;
-    }
-    if (search) {
-      filter.$text = { $search: search };
-    }
+    const filter = {
+      storeId: keyDoc.storeId,
+      isActive: true,
+      ...(category && { category }),
+      ...(search && { $text: { $search: search } }),
+    };
 
     const skip = (page - 1) * limit;
     const [products, total] = await Promise.all([

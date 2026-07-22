@@ -23,11 +23,23 @@ describe('PlansController', () => {
   };
 
   const mockPlansService = {
-    create: jest.fn().mockImplementation((dto: CreatePlanDto) => Promise.resolve({ _id: 'mock-plan-id', ...dto })),
+    create: jest
+      .fn()
+      .mockImplementation((dto: CreatePlanDto) =>
+        Promise.resolve({ _id: 'mock-plan-id', ...dto }),
+      ),
     findAll: jest.fn().mockResolvedValue([mockPlan]),
     findOne: jest.fn().mockResolvedValue(mockPlan),
-    update: jest.fn().mockImplementation((id: string, dto: UpdatePlanDto) => Promise.resolve({ ...mockPlan, ...dto })),
-    setStatus: jest.fn().mockImplementation((id: string, status: string) => Promise.resolve({ ...mockPlan, status })),
+    update: jest
+      .fn()
+      .mockImplementation((id: string, dto: UpdatePlanDto) =>
+        Promise.resolve({ ...mockPlan, ...dto }),
+      ),
+    setStatus: jest
+      .fn()
+      .mockImplementation((id: string, status: string) =>
+        Promise.resolve({ ...mockPlan, status }),
+      ),
     remove: jest.fn().mockResolvedValue({ deleted: true }),
   };
 
@@ -60,37 +72,45 @@ describe('PlansController', () => {
     };
     const result = await controller.create(dto);
     expect(result).toEqual({ _id: 'mock-plan-id', ...dto });
-    expect(service.create).toHaveBeenCalledWith(dto);
+    expect(jest.spyOn(service, 'create')).toHaveBeenCalledWith(dto);
   });
 
   it('should find all plans', async () => {
     const result = await controller.findAll('ACTIVE');
     expect(result).toEqual([mockPlan]);
-    expect(service.findAll).toHaveBeenCalledWith({ status: 'ACTIVE' });
+    expect(jest.spyOn(service, 'findAll')).toHaveBeenCalledWith({
+      status: 'ACTIVE',
+    });
   });
 
   it('should find a plan by id', async () => {
     const result = await controller.findOne('mock-plan-id');
     expect(result).toEqual(mockPlan);
-    expect(service.findOne).toHaveBeenCalledWith('mock-plan-id');
+    expect(jest.spyOn(service, 'findOne')).toHaveBeenCalledWith('mock-plan-id');
   });
 
   it('should update a plan', async () => {
     const dto: UpdatePlanDto = { name: 'New Name' };
     const result = await controller.update('mock-plan-id', dto);
     expect(result).toEqual({ ...mockPlan, ...dto });
-    expect(service.update).toHaveBeenCalledWith('mock-plan-id', dto);
+    expect(jest.spyOn(service, 'update')).toHaveBeenCalledWith(
+      'mock-plan-id',
+      dto,
+    );
   });
 
   it('should set status', async () => {
     const result = await controller.setStatus('mock-plan-id', 'INACTIVE');
     expect(result).toEqual({ ...mockPlan, status: 'INACTIVE' });
-    expect(service.setStatus).toHaveBeenCalledWith('mock-plan-id', 'INACTIVE');
+    expect(jest.spyOn(service, 'setStatus')).toHaveBeenCalledWith(
+      'mock-plan-id',
+      'INACTIVE',
+    );
   });
 
   it('should delete a plan', async () => {
     const result = await controller.remove('mock-plan-id');
     expect(result).toEqual({ deleted: true });
-    expect(service.remove).toHaveBeenCalledWith('mock-plan-id');
+    expect(jest.spyOn(service, 'remove')).toHaveBeenCalledWith('mock-plan-id');
   });
 });

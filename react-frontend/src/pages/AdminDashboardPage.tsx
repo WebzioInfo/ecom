@@ -76,27 +76,43 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* REVENUE CHART */}
-      <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800/80">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-200">Weekly Revenue & Volume Trends</h3>
-          <span className="text-xs text-slate-500">Live Telemetry</span>
+      {/* REVENUE CHART & TICKETS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 p-5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-slate-200">Weekly Revenue & Volume Trends</h3>
+            <span className="text-xs text-slate-500">Live Telemetry</span>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={sampleChartData}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
+                <YAxis stroke="#64748b" fontSize={11} />
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
+                <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sampleChartData}>
-              <defs>
-                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-              <YAxis stroke="#64748b" fontSize={11} />
-              <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} />
-              <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
-            </AreaChart>
-          </ResponsiveContainer>
+
+        {/* RECENT TICKETS */}
+        <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-slate-200">Recent Support Tickets</h3>
+            <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition" onClick={() => window.location.href = '/admin/support'}>View All</button>
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-500 border-t border-slate-800/50 pt-4">
+            {/* If there are tickets, we'd map them here. For now, empty state since we fetch them in the support page. */}
+            <AlertTriangle className="w-8 h-8 opacity-20 mb-2 text-indigo-400" />
+            <p className="text-xs text-center">No active tickets.</p>
+            <p className="text-[10px] text-center mt-1">If you need help, open a support ticket.</p>
+          </div>
         </div>
       </div>
     </div>

@@ -14,35 +14,35 @@ export class ApiKeysController {
   constructor(private readonly apiKeysService: ApiKeysService) {}
 
   @Post()
-  @Roles('super_admin', 'admin', 'company_admin', 'developer')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Generate a new Store API Key & Webhook secret' })
   create(@Body() dto: CreateApiKeyDto) {
     return this.apiKeysService.create(dto);
   }
 
   @Get('store/:storeId')
-  @Roles('super_admin', 'admin', 'company_admin', 'developer')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Get all API keys for a specific store' })
   findByStore(@Param('storeId') storeId: string) {
     return this.apiKeysService.findByStore(storeId);
   }
 
   @Patch(':id')
-  @Roles('super_admin', 'admin', 'company_admin', 'developer')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Update API Key settings or permissions' })
   update(@Param('id') id: string, @Body() dto: UpdateApiKeyDto) {
     return this.apiKeysService.update(id, dto);
   }
 
   @Post(':id/regenerate-secret')
-  @Roles('super_admin', 'admin', 'company_admin')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Regenerate API Key secret' })
   regenerateSecret(@Param('id') id: string) {
     return this.apiKeysService.regenerateSecret(id);
   }
 
   @Delete(':id')
-  @Roles('super_admin', 'admin', 'company_admin')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Revoke an API Key' })
   revoke(@Param('id') id: string) {
     return this.apiKeysService.revoke(id);

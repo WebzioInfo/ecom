@@ -1,12 +1,23 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Server, Activity, Database, CloudRain, Clock, Zap } from 'lucide-react';
+import { systemApi } from '../api/system.api';
 
 export default function SystemHealth() {
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    systemApi.getMetrics().then(setData).catch(console.error);
+    const interval = setInterval(() => {
+      systemApi.getMetrics().then(setData).catch(console.error);
+    }, 5000); // Polling every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   const metrics = [
-    { label: 'API Uptime', value: '99.99%', status: 'Operational', icon: Server, color: 'emerald' },
-    { label: 'Database Health', value: '14ms latency', status: 'Healthy', icon: Database, color: 'indigo' },
-    { label: 'Background Queues', value: '0 pending', status: 'Clear', icon: Clock, color: 'blue' },
-    { label: 'Active WebSockets', value: '4,281', status: 'Stable', icon: Zap, color: 'amber' },
+    { label: 'API Uptime', value: data ? `${(data.uptime / 3600).toFixed(2)}h` : '...', status: data?.status || 'Unknown', icon: Server, color: 'emerald' },
+    { label: 'Database Health', value: data?.dbLatency || '...', status: 'Healthy', icon: Database, color: 'indigo' },
+    { label: 'Background Queues', value: `${data?.backgroundQueues || 0} pending`, status: 'Clear', icon: Clock, color: 'blue' },
+    { label: 'Active WebSockets', value: data?.activeWebSockets || 0, status: 'Stable', icon: Zap, color: 'amber' },
   ];
 
   return (
@@ -37,6 +48,31 @@ export default function SystemHealth() {
           </div>
         ))}
       </div>
+      
+      {/* Additional Memory/CPU info could go here */}
+      {data && (
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 backdrop-blur-sm mt-6">
+          <h3 className="text-lg font-bold text-white mb-4">Node Server Telemetry</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-slate-400">
+            <div>
+              <span className="block text-slate-500">Free Mem</span>
+              <span className="text-white font-medium">{(data.memory.free / 1024 / 1024 / 1024).toFixed(2)} GB</span>
+            </div>
+            <div>
+              <span className="block text-slate-500">Total Mem</span>
+              <span className="text-white font-medium">{(data.memory.total / 1024 / 1024 / 1024).toFixed(2)} GB</span>
+            </div>
+            <div>
+              <span className="block text-slate-500">Process Heap Total</span>
+              <span className="text-white font-medium">{(data.memory.process.heapTotal / 1024 / 1024).toFixed(2)} MB</span>
+            </div>
+            <div>
+              <span className="block text-slate-500">CPU Cores</span>
+              <span className="text-white font-medium">{data.cpu.length}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

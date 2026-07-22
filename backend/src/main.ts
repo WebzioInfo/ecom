@@ -13,6 +13,28 @@ async function bootstrap() {
   // Set API version prefix
   app.setGlobalPrefix('api/v1');
 
+  // CORS configuration (MUST be before helmet and rate limiter to ensure headers are sent on 429s and errors)
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    : configService.get<string[]>('corsWhitelist') || [];
+
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+      'X-Store-Id',
+      'X-Tenant-Id',
+    ],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  });
+
   // Security headers
   app.use(helmet());
 
@@ -33,27 +55,6 @@ async function bootstrap() {
       transform: true,
     }),
   );
-
-  // CORS configuration
-  const corsOrigins = configService.get<string[]>('corsWhitelist');
-  app.enableCors({
-    origin: corsOrigins && corsOrigins.length > 0 ? corsOrigins : true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Authorization',
-      'Content-Type',
-      'Accept',
-      'Origin',
-      'X-Requested-With',
-      'X-Store-Id',
-      'x-store-id',
-      'X-Tenant-Id',
-      'x-tenant-id',
-      'X-API-Key',
-      'x-api-key',
-    ],
-  });
 
   // Swagger setup
   const config = new DocumentBuilder()

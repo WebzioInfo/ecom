@@ -13,14 +13,14 @@ export class AuditLogsController {
   constructor(private readonly auditLogsService: AuditLogsService) {}
 
   @Get('store/:storeId')
-  @Roles('super_admin', 'admin', 'company_admin')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Get audit logs for a specific store' })
   findByStore(@Param('storeId') storeId: string, @Query('limit') limit = 50) {
     return this.auditLogsService.findByStore(storeId, +limit);
   }
 
   @Get('global')
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Get global system audit logs' })
   findGlobal(@Query('limit') limit = 100) {
     return this.auditLogsService.findGlobal(+limit);

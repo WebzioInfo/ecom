@@ -46,6 +46,13 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh user access token' })
+  async refresh(@Body() body: { refresh_token: string }) {
+    return this.authService.refresh(body.refresh_token);
+  }
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request a password reset' })
@@ -91,6 +98,7 @@ export class AuthController {
       email: user.email,
       roles: user.roles,
       isVerified: user.isVerified,
+      storeId: user.storeId ? (user.storeId as any).toString() : undefined,
     };
   }
 }

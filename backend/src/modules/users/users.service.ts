@@ -40,4 +40,32 @@ export class UsersService {
   async findByVerificationToken(token: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ verificationToken: token }).exec();
   }
+
+  // ─── Super Admin Actions ──────────────────────────────────────────────────
+
+  async findAllGlobalUsers(query: { search?: string, status?: boolean }) {
+    const filter: any = {};
+    if (query.search) {
+      filter.$or = [
+        { name: { $regex: query.search, $options: 'i' } },
+        { email: { $regex: query.search, $options: 'i' } },
+      ];
+    }
+    if (query.status !== undefined) {
+      filter.isActive = query.status;
+    }
+
+    return this.userModel
+      .find(filter)
+      .select('-password')
+      .populate('storeId', 'name slug status')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async setStatus(id: string, isActive: boolean) {
+    const user = await this.userModel.findByIdAndUpdate(id, { isActive }, { new: true }).select('-password').exec();
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
 }

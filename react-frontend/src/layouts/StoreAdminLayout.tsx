@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   UserCog,
   LogOut,
+  MessageSquare,
+  Settings,
   ChevronDown,
   Globe,
   Bell,
@@ -47,8 +49,7 @@ export function StoreAdminLayout() {
     { label: 'Inventory', path: '/admin/inventory', icon: Warehouse },
     { label: 'Customers CRM', path: '/admin/customers', icon: Users },
     { label: 'Marketing & Coupons', path: '/admin/marketing', icon: Tag },
-    { label: 'API & Developer', path: '/admin/developer', icon: Key },
-    { label: 'Audit Logs', path: '/admin/audit-logs', icon: ShieldCheck },
+    { label: 'Support', path: '/admin/support', icon: MessageSquare },
     { label: 'Staff & Roles', path: '/admin/staff', icon: UserCog },
   ];
 

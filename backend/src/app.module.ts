@@ -20,13 +20,17 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { SuperAdminsModule } from './modules/super-admins/super-admins.module';
 import { SuperAdminAuthModule } from './modules/super-admin-auth/super-admin-auth.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
 import { PlansModule } from './modules/plans/plans.module';
+import { SupportModule } from './modules/support/support.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [configuration],
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -35,6 +39,7 @@ import { PlansModule } from './modules/plans/plans.module';
       }),
       inject: [ConfigService],
     }),
+    ScheduleModule.forRoot(),
     UsersModule,
     AuthModule,
     SuperAdminsModule,
@@ -54,6 +59,8 @@ import { PlansModule } from './modules/plans/plans.module';
       serveRoot: '/',
     }),
     PlansModule,
+    SupportModule,
+    NotificationsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService],

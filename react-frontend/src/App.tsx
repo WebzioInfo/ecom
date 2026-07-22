@@ -27,6 +27,9 @@ import DeveloperPortalPage from './pages/DeveloperPortalPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import StaffPage from './pages/StaffPage';
 import NotFoundPage from './pages/NotFoundPage';
+import SupportPage from './pages/SupportPage';
+import SuperAdminSupportPage from './pages/SuperAdminSupportPage';
+import SuperAdminAdminsPage from './pages/SuperAdminAdminsPage';
 
 export default function App() {
   const logout = useAuthStore((s) => s.logout);
@@ -58,13 +61,16 @@ export default function App() {
           <Route path="dashboard" element={<SuperAdminDashboardPage />} />
           <Route path="stores" element={<StoresPage />} />
           <Route path="stores/:id" element={<StoreDetailsPage />} />
-          <Route path="admins" element={<AdminsManager />} />
+          <Route path="admins" element={<SuperAdminAdminsPage />} />
           <Route path="plans" element={<PlansListPage />} />
           <Route path="plans/create" element={<PlanCreateEditPage />} />
           <Route path="plans/:id/edit" element={<PlanCreateEditPage />} />
+          <Route path="support" element={<SuperAdminSupportPage />} />
           <Route path="analytics" element={<div>Platform Analytics (WIP)</div>} />
           <Route path="system" element={<SystemHealth />} />
           <Route path="settings" element={<PlatformSettings />} />
+          <Route path="developer" element={<DeveloperPortalPage />} />
+          <Route path="audit-logs" element={<AuditLogsPage />} />
         </Route>
       </Route>
 
@@ -86,8 +92,7 @@ export default function App() {
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="marketing" element={<MarketingPage />} />
-        <Route path="developer" element={<DeveloperPortalPage />} />
-        <Route path="audit-logs" element={<AuditLogsPage />} />
+        <Route path="support" element={<SupportPage />} />
         <Route path="staff" element={<StaffPage />} />
       </Route>
 

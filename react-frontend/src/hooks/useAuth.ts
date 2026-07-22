@@ -11,8 +11,11 @@ export const useAuth = () => {
   const loginMutation = useMutation({
     mutationFn: async (payload: LoginPayload) => authApi.login(payload),
     onSuccess: async (data: LoginResponse) => {
-      // 1. Persist the token so the Axios interceptor picks it up immediately
+      // 1. Persist the tokens so the Axios interceptor picks them up
       localStorage.setItem('access_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
 
       // 2. Fetch the full user profile using the new token
       try {
@@ -36,6 +39,9 @@ export const useAuth = () => {
     onSuccess: async (data: LoginResponse) => {
       if (data.access_token) {
         localStorage.setItem('access_token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
         try {
           const profile = await authApi.me();
           setUser({

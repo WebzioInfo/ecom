@@ -13,6 +13,8 @@ import {
   Activity,
   CreditCard,
   Settings,
+  MessageSquare,
+  Key,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -26,9 +28,12 @@ export function SuperAdminLayout() {
     { label: 'Stores Manager', path: '/super-admin/stores', icon: Store },
     { label: 'Admins & Staff', path: '/super-admin/admins', icon: Users },
     { label: 'Subscription Plans', path: '/super-admin/plans', icon: CreditCard },
+    { label: 'Support Inbox', path: '/super-admin/support', icon: MessageSquare },
     { label: 'Analytics', path: '/super-admin/analytics', icon: Activity },
     { label: 'System Health', path: '/super-admin/system', icon: Server },
     { label: 'Platform Settings', path: '/super-admin/settings', icon: Settings },
+    { label: 'API & Developer', path: '/super-admin/developer', icon: Key },
+    { label: 'Audit Logs', path: '/super-admin/audit-logs', icon: ShieldCheck },
   ];
 
   return (

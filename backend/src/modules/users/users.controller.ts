@@ -50,4 +50,31 @@ export class UsersController {
   async findByStore(@Param('storeId') storeId: string) {
     return this.usersService.findByStore(storeId);
   }
+
+  // ─── Super Admin Actions ──────────────────────────────────────────────────
+
+  @Get('global')
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Super Admin: Get all store admins globally' })
+  async getGlobalUsers(@Request() req: any) {
+    // We can pull query params from req.query if needed, keeping simple for now
+    return this.usersService.findAllGlobalUsers({
+      search: req.query.search,
+      status: req.query.status ? req.query.status === 'true' : undefined
+    });
+  }
+
+  @Patch('global/:id/suspend')
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Super Admin: Suspend a user account' })
+  async suspendUser(@Param('id') id: string) {
+    return this.usersService.setStatus(id, false);
+  }
+
+  @Patch('global/:id/activate')
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Super Admin: Activate a suspended user account' })
+  async activateUser(@Param('id') id: string) {
+    return this.usersService.setStatus(id, true);
+  }
 }

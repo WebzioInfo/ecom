@@ -28,6 +28,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('active_store_id');
     localStorage.removeItem('active_store_data');
     set({ user: null, isAuthenticated: false });
@@ -56,7 +57,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         isInitializing: false,
       });
     } catch {
-      localStorage.removeItem('access_token');
+      // The Axios interceptor will handle clearing the token and dispatching 'auth:unauthorized'
+      // if the token is completely invalid and cannot be refreshed.
       set({ user: null, isAuthenticated: false, isInitializing: false });
     }
   },

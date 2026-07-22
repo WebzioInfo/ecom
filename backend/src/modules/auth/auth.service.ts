@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -16,6 +17,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -38,12 +40,24 @@ export class AuthService {
     });
 
     const payload = {
-      sub: newUser._id,
+      sub: (newUser._id as any).toString(),
       email: newUser.email,
       roles: newUser.roles,
+      type: 'STORE_ADMIN',
     };
+    
+    const access_token = this.jwtService.sign(payload, {
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m') as any,
+    });
+    
+    const refresh_token = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES', '30d') as any,
+    });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token,
+      refresh_token,
       verificationToken,
     };
   }
@@ -60,10 +74,61 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { sub: user._id, email: user.email, roles: user.roles };
-    return {
-      access_token: this.jwtService.sign(payload),
+    const payload = { 
+      sub: (user._id as any).toString(), 
+      email: user.email, 
+      roles: user.roles,
+      type: 'STORE_ADMIN', 
     };
+
+    const access_token = this.jwtService.sign(payload, {
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m') as any,
+    });
+    
+    const refresh_token = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES', '30d') as any,
+    });
+
+    return {
+      access_token,
+      refresh_token,
+    };
+  }
+
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+
+      if (payload.type !== 'STORE_ADMIN') {
+        throw new UnauthorizedException('Invalid token type');
+      }
+
+      const user = await this.usersService.findById(payload.sub);
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('User not found or account is suspended');
+      }
+
+      const newPayload = {
+        sub: (user._id as any).toString(),
+        email: user.email,
+        roles: user.roles,
+        type: 'STORE_ADMIN',
+      };
+
+      const access_token = this.jwtService.sign(newPayload, {
+        expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m') as any,
+      });
+
+      return {
+        access_token,
+        token_type: 'Bearer',
+      };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 
   async forgotPassword(email: string) {

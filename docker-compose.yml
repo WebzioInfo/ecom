@@ -19,7 +19,7 @@ services:
 
   frontend:
     build:
-      context: ./react-frontend
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "3006:80"

@@ -1,9 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ShoppingCart } from 'lucide-react';
-export function ProductCard(_a) {
-    var _b;
-    var product = _a.product;
-    return (_jsxs(motion.article, { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35 }, className: "group rounded-3xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-xl hover:border-indigo-200 transition", children: [_jsx(Link, { to: "/products/".concat(product._id), className: "block overflow-hidden rounded-3xl", children: _jsx("img", { src: ((_b = product.images) === null || _b === void 0 ? void 0 : _b[0]) || 'https://via.placeholder.com/400x400', alt: product.title, className: "h-56 w-full object-cover transition duration-300 group-hover:scale-105" }) }), _jsxs("div", { className: "mt-4 space-y-3", children: [_jsxs("div", { className: "flex items-center justify-between text-sm text-slate-500", children: [_jsx("span", { children: product.brand }), _jsx("span", { children: product.category })] }), _jsx(Link, { to: "/products/".concat(product._id), className: "block text-lg font-semibold text-slate-900 hover:text-indigo-600 transition", children: product.title }), _jsxs("div", { className: "flex items-center justify-between gap-3", children: [_jsxs("div", { children: [_jsxs("div", { className: "text-xl font-bold text-slate-900", children: ["$", product.price.toFixed(2)] }), _jsxs("div", { className: "text-sm text-slate-500 line-through", children: ["$", (product.price / (1 - product.discount / 100)).toFixed(2)] })] }), _jsx("button", { className: "inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:border-indigo-500 hover:text-indigo-600 transition", children: _jsx(ShoppingCart, { size: 18 }) })] })] })] }));
-}

@@ -1,15 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { ApiKey, ApiKeyDocument } from './schemas/api-key.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, ApiKey } from '@prisma/public-client';
 import { CreateApiKeyDto, UpdateApiKeyDto } from './dto/api-key.dto';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class ApiKeysService {
-  constructor(
-    @InjectModel(ApiKey.name) private apiKeyModel: Model<ApiKeyDocument>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateApiKeyDto) {
     const rawKey = `wbx_live_${crypto.randomBytes(16).toString('hex')}`;
@@ -19,61 +16,68 @@ export class ApiKeysService {
       .update(rawSecret)
       .digest('hex');
 
-    const apiKey = new this.apiKeyModel({
-      storeId: new Types.ObjectId(dto.storeId),
-      name: dto.name,
-      key: rawKey,
-      secretHash,
-      webhookSecret: rawSecret,
-      permissions: dto.permissions || ['read:products', 'write:orders'],
-      allowedOrigins: dto.allowedOrigins || ['*'],
-      rateLimitPerMinute: dto.rateLimitPerMinute || 1000,
+    const apiKey = await this.prisma.client.apiKey.create({
+      data: {
+        storeId: dto.storeId,
+        name: dto.name,
+        key: rawKey,
+        secretHash,
+        webhookSecret: rawSecret,
+        permissions: dto.permissions || ['read:products', 'write:orders'],
+        allowedOrigins: dto.allowedOrigins || ['*'],
+        rateLimitPerMinute: dto.rateLimitPerMinute || 1000,
+      }
     });
 
-    const saved = await apiKey.save();
-
     return {
-      id: saved._id,
-      name: saved.name,
+      id: apiKey.id,
+      name: apiKey.name,
       apiKey: rawKey,
       secretKey: rawSecret,
       webhookSecret: rawSecret,
-      permissions: saved.permissions,
-      createdAt: (saved as unknown as { createdAt?: Date }).createdAt,
+      permissions: apiKey.permissions,
+      createdAt: apiKey.createdAt,
     };
   }
 
   async findByStore(storeId: string) {
-    return this.apiKeyModel
-      .find({ storeId: new Types.ObjectId(storeId) })
-      .select('-secretHash')
-      .sort({ createdAt: -1 })
-      .exec();
+    const keys = await this.prisma.client.apiKey.findMany({
+      where: { storeId },
+      orderBy: { createdAt: 'desc' }
+    });
+    // Remove secretHash before returning
+    return keys.map((k: any) => { const { secretHash, ...rest } = k; return rest; });
   }
 
   async findByKey(key: string) {
-    return this.apiKeyModel.findOne({ key, isActive: true }).exec();
+    return this.prisma.client.apiKey.findFirst({
+      where: { key, isActive: true }
+    });
   }
 
   async update(id: string, dto: UpdateApiKeyDto) {
-    const key = await this.apiKeyModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
-      .select('-secretHash')
-      .exec();
-    if (!key) {
+    try {
+      const key = await this.prisma.client.apiKey.update({
+        where: { id },
+        data: dto as any
+      });
+      const { secretHash, ...rest } = key;
+      return rest;
+    } catch {
       throw new NotFoundException(`API key #${id} not found`);
     }
-    return key;
   }
 
   async revoke(id: string) {
-    const key = await this.apiKeyModel
-      .findByIdAndUpdate(id, { isActive: false }, { new: true })
-      .exec();
-    if (!key) {
+    try {
+      await this.prisma.client.apiKey.update({
+        where: { id },
+        data: { isActive: false }
+      });
+      return { message: 'API key revoked successfully' };
+    } catch {
       throw new NotFoundException(`API key #${id} not found`);
     }
-    return { message: 'API key revoked successfully' };
   }
 
   async regenerateSecret(id: string) {
@@ -82,20 +86,19 @@ export class ApiKeysService {
       .createHash('sha256')
       .update(newSecret)
       .digest('hex');
-    const key = await this.apiKeyModel
-      .findByIdAndUpdate(
-        id,
-        { secretHash, webhookSecret: newSecret },
-        { new: true },
-      )
-      .exec();
-    if (!key) {
+      
+    try {
+      const key = await this.prisma.client.apiKey.update({
+        where: { id },
+        data: { secretHash, webhookSecret: newSecret }
+      });
+      return {
+        id: key.id,
+        webhookSecret: newSecret,
+        message: 'Secret key regenerated successfully',
+      };
+    } catch {
       throw new NotFoundException(`API key #${id} not found`);
     }
-    return {
-      id: key._id,
-      webhookSecret: newSecret,
-      message: 'Secret key regenerated successfully',
-    };
   }
 }

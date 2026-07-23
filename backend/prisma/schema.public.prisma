@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/public-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StoreStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum TicketType {
+  TECHNICAL_ISSUE
+  BILLING
+  SUBSCRIPTION
+  FEATURE_REQUEST
+  GENERAL_SUPPORT
+}
+
+model SuperAdmin {
+  id                 String    @id @default(uuid())
+  name               String
+  email              String    @unique
+  password           String
+  avatar             String?
+  phone              String?
+  role               String    @default("SUPER_ADMIN")
+  status             String    @default("ACTIVE")
+  emailVerified      Boolean   @default(false)
+  lastLogin          DateTime?
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  loginHistory       Json      @default("[]") 
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  assignedTickets    Ticket[]  @relation("AssignedTickets")
+}
+
+model Store {
+  id              String      @id @default(uuid())
+  name            String
+  slug            String      @unique
+  domain          String?
+  customDomain    String?
+  status          StoreStatus @default(ACTIVE)
+  
+  ownerId         String      // Logical reference to User in tenant schema
+  
+  branding        Json        @default("{}")
+  settings        Json        @default("{}")
+  subscription    Json        @default("{}")
+  
+  apiUsageCount   Int         @default(0)
+  storageUsedMB   Int         @default(0)
+  productCount    Int         @default(0)
+  orderCount      Int         @default(0)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  apiKeys         ApiKey[]
+  tickets         Ticket[]
+}
+
+model ApiKey {
+  id                 String   @id @default(uuid())
+  storeId            String
+  store              Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name               String
+  key                String   @unique
+  secretHash         String
+  webhookSecret      String?
+  permissions        String[] @default(["read:products", "write:orders"])
+  allowedOrigins     String[] @default(["*"])
+  rateLimitPerMinute Int      @default(1000)
+  isActive           Boolean  @default(true)
+  lastUsedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Plan {
+  id               String   @id @default(uuid())
+  name             String
+  code             String   @unique
+  description      String
+  monthlyPrice     Float
+  yearlyPrice      Float
+  currency         String   @default("USD")
+  trialDays        Int      @default(0)
+  status           String   @default("ACTIVE")
+  popularBadge     Boolean  @default(false)
+  recommendedBadge Boolean  @default(false)
+  limits           Json
+  features         Json
+  displayOrder     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Ticket {
+  id         String       @id @default(uuid())
+  subject    String
+  type       TicketType
+  status     TicketStatus @default(OPEN)
+  storeId    String
+  store      Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdById String      // Logical reference to User in tenant schema
+  assignedToId String?
+  assignedTo SuperAdmin?  @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  messages   Json         @default("[]") 
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model UserRegistry {
+  email     String
+  storeId   String
+  schema    String
+  createdAt DateTime @default(now())
+
+  @@id([email, storeId])
+}

@@ -3,38 +3,34 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Plan, PlanDocument } from './schemas/plan.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, Plan } from '@prisma/public-client';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 
 @Injectable()
 export class PlansService {
-  constructor(@InjectModel(Plan.name) private planModel: Model<PlanDocument>) {}
+  constructor(private prisma: PrismaService) {}
 
   async create(createPlanDto: CreatePlanDto): Promise<Plan> {
-    const existingPlan = await this.planModel.findOne({
-      code: createPlanDto.code,
+    const existingPlan = await this.prisma.client.plan.findUnique({
+      where: { code: createPlanDto.code }
     });
     if (existingPlan) {
-      throw new ConflictException(
-        `Plan with code ${createPlanDto.code} already exists`,
-      );
+      throw new ConflictException(`Plan with code ${createPlanDto.code} already exists`);
     }
-    const createdPlan = new this.planModel(createPlanDto);
-    return createdPlan.save();
+    return this.prisma.client.plan.create({ data: createPlanDto as any });
   }
 
-  async findAll(query: Record<string, unknown> = {}): Promise<Plan[]> {
-    return this.planModel
-      .find(query)
-      .sort({ displayOrder: 1, createdAt: -1 })
-      .exec();
+  async findAll(query: any = {}): Promise<Plan[]> {
+    return this.prisma.client.plan.findMany({
+      where: query,
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }]
+    });
   }
 
   async findOne(id: string): Promise<Plan> {
-    const plan = await this.planModel.findById(id).exec();
+    const plan = await this.prisma.client.plan.findUnique({ where: { id } });
     if (!plan) {
       throw new NotFoundException(`Plan with ID ${id} not found`);
     }
@@ -43,39 +39,39 @@ export class PlansService {
 
   async update(id: string, updatePlanDto: UpdatePlanDto): Promise<Plan> {
     if (updatePlanDto.code) {
-      const existingPlan = await this.planModel.findOne({
-        code: updatePlanDto.code,
-        _id: { $ne: id },
+      const existingPlan = await this.prisma.client.plan.findFirst({
+        where: { code: updatePlanDto.code, id: { not: id } }
       });
       if (existingPlan) {
-        throw new ConflictException(
-          `Plan with code ${updatePlanDto.code} already exists`,
-        );
+        throw new ConflictException(`Plan with code ${updatePlanDto.code} already exists`);
       }
     }
-    const updatedPlan = await this.planModel
-      .findByIdAndUpdate(id, updatePlanDto, { new: true })
-      .exec();
-    if (!updatedPlan) {
+    try {
+      return await this.prisma.client.plan.update({
+        where: { id },
+        data: updatePlanDto as any
+      });
+    } catch {
       throw new NotFoundException(`Plan with ID ${id} not found`);
     }
-    return updatedPlan;
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.planModel.deleteOne({ _id: id }).exec();
-    if (result.deletedCount === 0) {
+    try {
+      await this.prisma.client.plan.delete({ where: { id } });
+    } catch {
       throw new NotFoundException(`Plan with ID ${id} not found`);
     }
   }
 
   async setStatus(id: string, status: string): Promise<Plan> {
-    const updatedPlan = await this.planModel
-      .findByIdAndUpdate(id, { status }, { new: true })
-      .exec();
-    if (!updatedPlan) {
+    try {
+      return await this.prisma.client.plan.update({
+        where: { id },
+        data: { status }
+      });
+    } catch {
       throw new NotFoundException(`Plan with ID ${id} not found`);
     }
-    return updatedPlan;
   }
 }

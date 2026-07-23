@@ -4,6 +4,7 @@ import {
   ConflictException,
   NotFoundException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,7 @@ import { SuperAdminsService } from '../super-admins/super-admins.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+import { PrismaService, tenantContextStorage } from '../../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -24,15 +26,21 @@ export class AuthService {
     private superAdminsService: SuperAdminsService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private prisma: PrismaService,
   ) {}
 
   async register(registerDto: RegisterDto) {
     const { name, email, password } = registerDto;
-    
     // Check SuperAdmins first to avoid conflict
     const existingAdmin = await this.superAdminsService.findByEmail(email);
     if (existingAdmin) {
       throw new ConflictException('Email already in use');
+    }
+
+    const context = tenantContextStorage.getStore();
+
+    if (!context) {
+      throw new BadRequestException('Store context required (provide x-store-id header)');
     }
 
     const existingUser = await this.usersService.findByEmail(email);
@@ -52,12 +60,29 @@ export class AuthService {
       verificationToken,
     });
 
+    // Create a global UserRegistry mapping
+    await this.prisma.public.userRegistry.upsert({
+      where: {
+        email_storeId: { email, storeId: context.storeId }
+      },
+      update: {
+        schema: context.schemaName,
+      },
+      create: {
+        email,
+        storeId: context.storeId,
+        schema: context.schemaName,
+      }
+    });
+
     const payload: JwtPayload = {
       sub: (newUser._id as { toString(): string }).toString(),
       email: newUser.email,
       role: newUser.roles?.[0] || 'user',
       isSuperAdmin: false,
       isPlatformAdmin: false,
+      tenantId: context.schemaName,
+      storeId: context.storeId,
     };
     
     return {
@@ -68,7 +93,6 @@ export class AuthService {
 
   async login(loginDto: LoginDto, clientIp: string = 'unknown', userAgent: string = 'unknown') {
     const { email, password } = loginDto;
-    
     // 1. Check SuperAdmin
     const admin = await this.superAdminsService.findByEmail(email);
     if (admin) {
@@ -107,6 +131,11 @@ export class AuthService {
     }
 
     // 2. Check Standard User
+    const context = tenantContextStorage.getStore();
+
+    if (!context) {
+      throw new BadRequestException('Store context required (provide x-store-id header)');
+    }
     const user = await this.usersService.findByEmail(email);
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
@@ -124,8 +153,8 @@ export class AuthService {
       role: user.roles?.[0] || 'user',
       isSuperAdmin: false,
       isPlatformAdmin: false,
-      tenantId: undefined, // Depending on user's stores, can be populated here or in a StoreUserService
-      storeId: undefined
+      tenantId: context.schemaName,
+      storeId: context.storeId
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -216,7 +245,7 @@ export class AuthService {
 
     const resetToken = randomBytes(24).toString('hex');
     const resetTokenExpiration = new Date(Date.now() + 1000 * 60 * 30);
-    await this.usersService.updateProfile(user._id.toString(), {
+    await this.usersService.updateProfile(user.id.toString(), {
       resetToken,
       resetTokenExpiration,
     });
@@ -234,7 +263,7 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await this.usersService.updateProfile(user._id.toString(), {
+    await this.usersService.updateProfile(user.id.toString(), {
       password: hashedPassword,
       resetToken: undefined,
       resetTokenExpiration: undefined,
@@ -247,7 +276,7 @@ export class AuthService {
     const user = await this.usersService.findByVerificationToken(token);
     if (!user) throw new UnauthorizedException('Invalid verification token');
 
-    await this.usersService.updateProfile(user._id.toString(), {
+    await this.usersService.updateProfile(user.id.toString(), {
       isVerified: true,
       verificationToken: undefined,
     });

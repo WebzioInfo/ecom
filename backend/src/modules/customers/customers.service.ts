@@ -1,21 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Customer, CustomerDocument } from './schemas/customer.schema';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, Customer } from '@prisma/client';
 
 @Injectable()
 export class CustomersService {
-  constructor(
-    @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateCustomerDto): Promise<Customer> {
-    const customer = new this.customerModel({
-      ...dto,
-      storeId: new Types.ObjectId(dto.storeId),
-    });
-    return customer.save();
+  async create(dto: Prisma.CustomerUncheckedCreateInput): Promise<Customer> {
+    return this.prisma.client.customer.create({ data: dto });
   }
 
   async findByStore(
@@ -23,48 +15,55 @@ export class CustomersService {
     query: { search?: string; page?: number; limit?: number },
   ) {
     const { search, page = 1, limit = 20 } = query;
-    const filter = {
-      storeId: new Types.ObjectId(storeId),
-      ...(search && {
-        $or: [
-          { firstName: { $regex: search, $options: 'i' } },
-          { lastName: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-        ],
-      }),
-    };
+    
+    const where: Prisma.CustomerWhereInput = { storeId };
+    
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
+    
     const [data, total] = await Promise.all([
-      this.customerModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.customerModel.countDocuments(filter),
+      this.prisma.client.customer.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.client.customer.count({ where }),
     ]);
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string): Promise<Customer> {
-    const customer = await this.customerModel.findById(id).exec();
+    const customer = await this.prisma.client.customer.findUnique({ where: { id } });
     if (!customer) throw new NotFoundException(`Customer #${id} not found`);
     return customer;
   }
 
-  async update(id: string, dto: UpdateCustomerDto): Promise<Customer> {
-    const customer = await this.customerModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
-      .exec();
-    if (!customer) throw new NotFoundException(`Customer #${id} not found`);
-    return customer;
+  async update(id: string, dto: Prisma.CustomerUpdateInput): Promise<Customer> {
+    try {
+      return await this.prisma.client.customer.update({
+        where: { id },
+        data: dto,
+      });
+    } catch {
+      throw new NotFoundException(`Customer #${id} not found`);
+    }
   }
 
   async remove(id: string): Promise<{ message: string }> {
-    const customer = await this.customerModel.findByIdAndDelete(id).exec();
-    if (!customer) throw new NotFoundException(`Customer #${id} not found`);
-    return { message: `Customer #${id} deleted successfully` };
+    try {
+      await this.prisma.client.customer.delete({ where: { id } });
+      return { message: `Customer #${id} deleted successfully` };
+    } catch {
+      throw new NotFoundException(`Customer #${id} not found`);
+    }
   }
 }

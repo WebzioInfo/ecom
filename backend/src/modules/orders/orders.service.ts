@@ -1,56 +1,42 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { CartService } from '../cart/cart.service';
-import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Order, OrderStatus } from '@prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
 
 @Injectable()
 export class OrdersService {
   constructor(
-    @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    private prisma: PrismaService,
     private configService: ConfigService,
     private cartService: CartService,
   ) {}
 
   async createOrder(userId: string, createOrderDto: CreateOrderDto) {
-    const items =
+    let orderItems =
       createOrderDto.items?.map((item) => ({
-        product: new Types.ObjectId(item.productId),
+        product: item.productId,
         quantity: item.quantity,
         priceAtPurchase: item.priceAtPurchase,
       })) || [];
 
-    let orderItems = items;
-    if (!items.length) {
+    if (!orderItems.length) {
       const cart = await this.cartService.getCart(userId);
-      orderItems = cart.items.map((item) => {
+      const items = cart.items as any[];
+      orderItems = items.map((item) => {
         const product = item.product;
-        if (product instanceof Types.ObjectId) {
+        if (typeof product === 'string') {
           return {
             product,
             quantity: item.quantity,
             priceAtPurchase: 0,
           };
         }
-
-        if (typeof product === 'string') {
-          return {
-            product: new Types.ObjectId(product),
-            quantity: item.quantity,
-            priceAtPurchase: 0,
-          };
-        }
-
-        const populatedProduct = product as unknown as {
-          _id: Types.ObjectId;
-          price: number;
-        };
         return {
-          product: populatedProduct._id,
+          product: product.id || product._id,
           quantity: item.quantity,
-          priceAtPurchase: populatedProduct.price ?? 0,
+          priceAtPurchase: product.price ?? 0,
         };
       });
     }
@@ -59,21 +45,23 @@ export class OrdersService {
       (sum, item) => sum + item.priceAtPurchase * item.quantity,
       0,
     );
-    const order = new this.orderModel({
-      user: new Types.ObjectId(userId),
-      items: orderItems,
-      totalAmount,
-      status: OrderStatus.PENDING,
+
+    const savedOrder = await this.prisma.client.order.create({
+      data: {
+        userId,
+        items: orderItems,
+        totalAmount,
+        status: OrderStatus.PENDING,
+      }
     });
 
-    const savedOrder = await order.save();
     await this.cartService.clearCart(userId);
 
     const phone =
       this.configService.get<string>('WHATSAPP_PHONE')?.replace(/\D/g, '') ||
       '15551234567';
     const message = encodeURIComponent(
-      `Order ID: ${savedOrder._id.toString()}\nTotal: $${totalAmount.toFixed(2)}\nView: ${createOrderDto.returnUrl || ''}`,
+      `Order ID: ${savedOrder.id}\nTotal: $${totalAmount.toFixed(2)}\nView: ${createOrderDto.returnUrl || ''}`,
     );
 
     return {
@@ -83,41 +71,26 @@ export class OrdersService {
   }
 
   async getOrders(userId: string, roles: string[]) {
-    const filter = roles.includes('admin')
-      ? {}
-      : { user: new Types.ObjectId(userId) };
-    return this.orderModel
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .populate('items.product')
-      .lean()
-      .exec();
+    const where = roles.includes('admin') ? {} : { userId };
+    
+    const orders = await this.prisma.client.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    // In a real app we might want to fetch and populate product info for each item in the order
+    
+    return orders;
   }
 
   async getOrderById(userId: string, id: string, roles: string[]) {
-    const order = await this.orderModel
-      .findById(id)
-      .populate('items.product')
-      .lean()
-      .exec();
+    const order = await this.prisma.client.order.findUnique({
+      where: { id }
+    });
 
     if (!order) throw new NotFoundException('Order not found');
-    const orderUser = order.user;
-    let orderUserId = '';
-    if (orderUser instanceof Types.ObjectId) {
-      orderUserId = orderUser.toString();
-    } else if (typeof orderUser === 'string') {
-      orderUserId = orderUser;
-    } else if (
-      orderUser &&
-      typeof orderUser === 'object' &&
-      '_id' in orderUser
-    ) {
-      const userObj = orderUser as { _id: Types.ObjectId | string };
-      orderUserId = userObj._id.toString();
-    }
 
-    if (!roles.includes('admin') && orderUserId !== userId) {
+    if (!roles.includes('admin') && order.userId !== userId) {
       throw new NotFoundException('Order not found');
     }
     return order;

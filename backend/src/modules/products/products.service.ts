@@ -1,29 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, SortOrder } from 'mongoose';
-import { Product, ProductDocument } from './schemas/product.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, Product } from '@prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ListProductsDto } from './dto/list-products.dto';
 
-interface ProductFilter {
-  isActive?: boolean;
-  category?: string;
-  brand?: string;
-  price?: { $gte?: number; $lte?: number };
-  stock?: { $gt: number };
-  $text?: { $search: string };
-}
-
 @Injectable()
 export class ProductsService {
-  constructor(
-    @InjectModel(Product.name) private productModel: Model<ProductDocument>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async create(createProductDto: CreateProductDto): Promise<ProductDocument> {
-    const product = new this.productModel(createProductDto);
-    return product.save();
+  async create(createProductDto: CreateProductDto): Promise<Product> {
+    return this.prisma.client.product.create({ data: createProductDto as any });
   }
 
   async findAll(query: ListProductsDto) {
@@ -31,36 +18,39 @@ export class ProductsService {
     const limit = Math.min(50, query.limit || 12);
     const skip = (page - 1) * limit;
 
-    const filter: ProductFilter = { isActive: true };
-    if (query.category) filter.category = query.category;
-    if (query.brand) filter.brand = query.brand;
+    const where: Prisma.ProductWhereInput = { isActive: true };
+    if (query.category) where.category = query.category;
+    if (query.brand) where.brand = query.brand;
 
-    const priceFilter: { $gte?: number; $lte?: number } = {};
-    if (query.minPrice !== undefined) priceFilter.$gte = query.minPrice;
-    if (query.maxPrice !== undefined) priceFilter.$lte = query.maxPrice;
-    if (Object.keys(priceFilter).length > 0) {
-      filter.price = priceFilter;
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      where.price = {};
+      if (query.minPrice !== undefined) where.price.gte = query.minPrice;
+      if (query.maxPrice !== undefined) where.price.lte = query.maxPrice;
     }
 
-    if (query.inStock) filter.stock = { $gt: 0 };
-    if (query.search) filter.$text = { $search: query.search };
+    if (query.inStock) where.stock = { gt: 0 };
+    if (query.search) {
+      where.OR = [
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } }
+      ];
+    }
 
-    const sortOptions: Record<string, SortOrder> = {};
-    if (query.sortBy === 'priceAsc') sortOptions.price = 1;
-    else if (query.sortBy === 'priceDesc') sortOptions.price = -1;
-    else if (query.sortBy === 'rating') sortOptions.rating = -1;
-    else if (query.sortBy === 'newest') sortOptions.createdAt = -1;
-    else sortOptions.title = 1;
+    const orderBy: Prisma.ProductOrderByWithRelationInput = {};
+    if (query.sortBy === 'priceAsc') orderBy.price = 'asc';
+    else if (query.sortBy === 'priceDesc') orderBy.price = 'desc';
+    else if (query.sortBy === 'rating') orderBy.rating = 'desc';
+    else if (query.sortBy === 'newest') orderBy.createdAt = 'desc';
+    else orderBy.title = 'asc';
 
     const [data, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .exec(),
-      this.productModel.countDocuments(filter).exec(),
+      this.prisma.client.product.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.client.product.count({ where }),
     ]);
 
     return {
@@ -74,48 +64,57 @@ export class ProductsService {
     };
   }
 
-  async findOne(id: string): Promise<ProductDocument> {
-    const product = await this.productModel.findById(id).exec();
+  async findOne(id: string): Promise<Product> {
+    const product = await this.prisma.client.product.findUnique({ where: { id } });
     if (!product) throw new NotFoundException('Product not found');
     return product;
   }
 
-  async update(
-    id: string,
-    updateProductDto: UpdateProductDto,
-  ): Promise<ProductDocument> {
-    const product = await this.productModel.findByIdAndUpdate(
-      id,
-      updateProductDto,
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
-    if (!product) throw new NotFoundException('Product not found');
-    return product;
+  async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
+    try {
+      return await this.prisma.client.product.update({
+        where: { id },
+        data: updateProductDto as any,
+      });
+    } catch {
+      throw new NotFoundException('Product not found');
+    }
   }
 
   async remove(id: string) {
-    const product = await this.productModel.findByIdAndDelete(id).exec();
-    if (!product) throw new NotFoundException('Product not found');
-    return { success: true };
+    try {
+      await this.prisma.client.product.delete({ where: { id } });
+      return { success: true };
+    } catch {
+      throw new NotFoundException('Product not found');
+    }
   }
 
   async getCategories(): Promise<string[]> {
-    return this.productModel.distinct('category').exec();
+    const products = await this.prisma.client.product.findMany({
+      select: { category: true },
+      distinct: ['category'],
+    });
+    return products.map((p: any) => p.category);
   }
 
   async getBrands(): Promise<string[]> {
-    return this.productModel.distinct('brand').exec();
+    const products = await this.prisma.client.product.findMany({
+      select: { brand: true },
+      distinct: ['brand'],
+    });
+    return products.map((p: any) => p.brand);
   }
 
   async findFeatured(limit = 8) {
-    return this.productModel
-      .find({ isActive: true })
-      .sort({ featured: -1, createdAt: -1, rating: -1 })
-      .limit(limit)
-      .lean()
-      .exec();
+    return this.prisma.client.product.findMany({
+      where: { isActive: true },
+      orderBy: [
+        { featured: 'desc' },
+        { createdAt: 'desc' },
+        { rating: 'desc' }
+      ],
+      take: limit,
+    });
   }
 }

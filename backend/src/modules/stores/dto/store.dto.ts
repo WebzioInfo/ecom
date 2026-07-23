@@ -5,7 +5,7 @@ import {
   IsEnum,
   IsObject,
 } from 'class-validator';
-import { StoreStatus } from '../schemas/store.schema';
+import {  StoreStatus  } from '@prisma/public-client';
 
 export class CreateStoreDto {
   @IsString()

@@ -6,7 +6,7 @@ import {
   IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TicketStatus } from '../schemas/ticket.schema';
+import {  TicketStatus  } from '@prisma/public-client';
 
 export class ReplyTicketDto {
   @ApiProperty({ description: 'The message content' })

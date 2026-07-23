@@ -6,7 +6,7 @@ import {
   IsArray,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TicketType } from '../schemas/ticket.schema';
+import {  TicketType  } from '@prisma/public-client';
 
 export class CreateTicketDto {
   @ApiProperty({ description: 'The subject of the support ticket' })

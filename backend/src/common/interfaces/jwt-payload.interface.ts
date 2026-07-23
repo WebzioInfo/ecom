@@ -1,12 +1,13 @@
 export interface JwtPayload {
   sub: string;
-  email?: string;
-  roles?: string[];
-  type?: string;
+  email: string;
+  role: string;
+  permissions?: string[];
   storeId?: string;
-}
-
-export interface SuperAdminJwtPayload extends JwtPayload {
-  type: 'SUPER_ADMIN';
-  role?: string;
+  tenantId?: string;
+  schemaName?: string;
+  isSuperAdmin: boolean;
+  isPlatformAdmin: boolean;
+  iat?: number;
+  exp?: number;
 }

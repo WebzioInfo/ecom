@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Lock, Mail, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import { useSuperAdminAuthStore } from '../store/useSuperAdminAuthStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function SuperAdminLogin() {
   const [email, setEmail] = useState('');
@@ -11,7 +11,7 @@ export default function SuperAdminLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const setAuth = useSuperAdminAuthStore((state) => state.setAuth);
+  const setUser = useAuthStore((state) => state.setUser);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -21,13 +21,25 @@ export default function SuperAdminLogin() {
 
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/super-admin/auth/login`,
+        `${import.meta.env.VITE_API_URL}/auth/login`,
         { email, password },
       );
 
       const { user, access_token, refresh_token } = response.data;
-      setAuth(user, access_token, refresh_token);
+      if (!user.isSuperAdmin) {
+         setError('Not authorized as Super Admin');
+         return;
+      }
       localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      setUser({
+        id: user.id || user._id,
+        email: user.email,
+        name: user.name,
+        roles: user.roles || ['super_admin'],
+        role: user.role,
+        isSuperAdmin: true,
+      });
       navigate('/super-admin/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to authenticate');

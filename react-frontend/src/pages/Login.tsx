@@ -3,8 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPayload } from '../types';
-import axios from 'axios';
-import { useSuperAdminAuthStore } from '../store/useSuperAdminAuthStore';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,35 +13,19 @@ export default function Login() {
   const onSuccess = (data: any) => {
     toast.success('Welcome back!');
     const userRoles = data.user?.roles || [];
-    if (userRoles.includes('super_admin') || userRoles.includes('admin')) {
-      navigate('/super-admin');
+    if (data.user?.isSuperAdmin || userRoles.includes('super_admin') || userRoles.includes('admin')) {
+      navigate('/super-admin/dashboard');
     } else {
       navigate('/admin');
     }
   };
 
-  const setSuperAdminAuth = useSuperAdminAuthStore((state) => state.setAuth);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     loginMutation.mutate({ email, password }, { 
       onSuccess,
-      onError: async (err: any) => {
-        if (err.response?.status === 401) {
-          try {
-            const response = await axios.post(
-              `${import.meta.env.VITE_API_URL}/super-admin/auth/login`,
-              { email, password }
-            );
-            const { user, access_token, refresh_token } = response.data;
-            setSuperAdminAuth(user, access_token, refresh_token);
-            localStorage.setItem('access_token', access_token);
-            toast.success('Welcome back, Super Admin!');
-            navigate('/super-admin/dashboard');
-          } catch (superAdminErr) {
-            // Keep the original error state if super admin login also fails
-          }
-        }
+      onError: (err: any) => {
+        toast.error(err.response?.data?.message || 'Invalid credentials');
       }
     });
   };

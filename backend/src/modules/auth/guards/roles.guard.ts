@@ -6,15 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-
-interface AuthenticatedRequest {
-  user?: {
-    userId: string;
-    roles: string[];
-    storeId?: string;
-  };
-  url?: string;
-}
+import { AuthenticatedRequest } from '../../../common/interfaces/request.interface';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -40,16 +32,15 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied');
     }
 
-    const userRolesLower = (user.roles || []).map((r) => r.toLowerCase());
-    const requiredRolesLower = requiredRoles.map((r) => r.toLowerCase());
-
     // Super Admin has universal access across all routes
-    if (
-      userRolesLower.includes('super_admin') ||
-      userRolesLower.includes('admin')
-    ) {
+    if (user.isSuperAdmin) {
       return true;
     }
+
+    const userRolesLower = (user.roles || []).map((r) => r.toLowerCase());
+    if (user.role) userRolesLower.push(user.role.toLowerCase());
+    
+    const requiredRolesLower = requiredRoles.map((r) => r.toLowerCase());
 
     const hasRole = requiredRolesLower.some((reqRole) =>
       userRolesLower.includes(reqRole),
@@ -57,7 +48,7 @@ export class RolesGuard implements CanActivate {
 
     if (!hasRole) {
       this.logger.warn(
-        `[RBAC] User ${user.userId} with roles [${user.roles?.join(', ')}] ` +
+        `[RBAC] User ${user.userId} with roles [${userRolesLower.join(', ')}] ` +
           `attempted to access route requiring [${requiredRoles.join(', ')}]: ${request.url}`,
       );
       throw new ForbiddenException(

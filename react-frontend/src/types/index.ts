@@ -6,9 +6,11 @@ export interface UserProfile {
   name: string;
   email: string;
   roles: Role[];
+  role?: string;
   permissions?: string[];
   storeId?: string;
   isVerified?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export interface LoginPayload {
@@ -19,6 +21,7 @@ export interface LoginPayload {
 export interface LoginResponse {
   access_token: string;
   refresh_token: string;
+  user?: UserProfile;
 }
 
 export interface RegisterPayload {

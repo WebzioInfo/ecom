@@ -2,20 +2,11 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UsersService } from '../../users/users.service';
-
-export interface JwtPayload {
-  sub: string;
-  email: string;
-  roles: string[];
-}
+import { JwtPayload } from '../../../common/interfaces/jwt-payload.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private configService: ConfigService,
-    private usersService: UsersService,
-  ) {
+  constructor(private configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -25,13 +16,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    const user = await this.usersService.findById(payload.sub);
-    if (!user) {
+    // The payload itself contains the unified identity.
+    if (!payload.sub) {
       throw new UnauthorizedException();
     }
     return {
-      userId: (user._id as { toString(): string }).toString(),
-      roles: user.roles,
+      userId: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      permissions: payload.permissions,
+      storeId: payload.storeId,
+      tenantId: payload.tenantId,
+      schemaName: payload.schemaName,
+      isSuperAdmin: payload.isSuperAdmin,
+      isPlatformAdmin: payload.isPlatformAdmin,
     };
   }
 }

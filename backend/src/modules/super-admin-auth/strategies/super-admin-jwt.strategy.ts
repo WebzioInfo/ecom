@@ -41,7 +41,7 @@ export class SuperAdminJwtStrategy extends PassportStrategy(
     }
 
     return {
-      userId: (admin._id as { toString(): string }).toString(),
+      userId: (admin.id as { toString(): string }).toString(),
       email: admin.email,
       role: admin.role,
       type: 'SUPER_ADMIN',

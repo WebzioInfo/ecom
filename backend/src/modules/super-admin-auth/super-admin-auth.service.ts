@@ -43,7 +43,7 @@ export class SuperAdminAuthService {
       throw new UnauthorizedException('Account is suspended');
     }
 
-    const adminId = (admin._id as { toString(): string }).toString();
+    const adminId = (admin.id as { toString(): string }).toString();
 
     // 4. Record login history and update lastLogin
     await this.superAdminsService.recordLoginHistory(
@@ -108,7 +108,7 @@ export class SuperAdminAuthService {
       }
 
       const newPayload = {
-        sub: (admin._id as { toString(): string }).toString(),
+        sub: (admin.id as { toString(): string }).toString(),
         email: admin.email,
         role: admin.role,
         type: 'SUPER_ADMIN',
@@ -137,7 +137,7 @@ export class SuperAdminAuthService {
     }
 
     return {
-      id: (admin._id as { toString(): string }).toString(),
+      id: (admin.id as { toString(): string }).toString(),
       name: admin.name,
       email: admin.email,
       role: admin.role,

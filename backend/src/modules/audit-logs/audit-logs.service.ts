@@ -1,13 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { AuditLog, AuditLogDocument } from './schemas/audit-log.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, AuditLog } from '@prisma/client';
 
 @Injectable()
 export class AuditLogsService {
-  constructor(
-    @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async log(params: {
     storeId?: string;
@@ -19,30 +16,34 @@ export class AuditLogsService {
     ipAddress?: string;
     userAgent?: string;
   }) {
-    const auditLog = new this.auditLogModel({
-      ...params,
-      storeId: params.storeId ? new Types.ObjectId(params.storeId) : null,
-      userId: new Types.ObjectId(params.userId),
+    return this.prisma.client.auditLog.create({
+      data: {
+        ...params,
+        storeId: params.storeId || null,
+        changes: (params.changes || {}) as Prisma.InputJsonValue,
+      }
     });
-    return auditLog.save();
   }
 
   async findByStore(storeId: string, limit = 50) {
-    return this.auditLogModel
-      .find({ storeId: new Types.ObjectId(storeId) })
-      .populate('userId', 'name email roles')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .exec();
+    return this.prisma.client.auditLog.findMany({
+      where: { storeId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        user: { select: { name: true, email: true, roles: true } }
+      }
+    });
   }
 
   async findGlobal(limit = 100) {
-    return this.auditLogModel
-      .find()
-      .populate('userId', 'name email roles')
-      .populate('storeId', 'name slug')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .exec();
+    return this.prisma.client.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        user: { select: { name: true, email: true, roles: true } },
+        store: { select: { name: true, slug: true } }
+      }
+    });
   }
 }

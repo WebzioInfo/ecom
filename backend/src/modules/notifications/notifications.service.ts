@@ -1,122 +1,95 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
-import {
-  PlatformNotification,
-  NotificationDocument,
-  NotificationType,
-} from './schemas/notification.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, PlatformNotification, NotificationType } from '@prisma/client';
+import { StoreStatus } from '@prisma/public-client';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import {
-  Store,
-  StoreDocument,
-  StoreStatus,
-} from '../stores/schemas/store.schema';
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(
-    @InjectModel(PlatformNotification.name)
-    private notificationModel: Model<NotificationDocument>,
-    @InjectModel(Store.name) private storeModel: Model<StoreDocument>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async create(
-    createDto: CreateNotificationDto,
-  ): Promise<PlatformNotification> {
-    const notification = new this.notificationModel({
-      ...createDto,
-      storeId: createDto.storeId
-        ? new Types.ObjectId(createDto.storeId)
-        : undefined,
+  async create(createDto: CreateNotificationDto): Promise<PlatformNotification> {
+    return this.prisma.client.platformNotification.create({
+      data: {
+        ...createDto,
+        type: createDto.type as NotificationType,
+        storeId: createDto.storeId || null,
+      } as any
     });
-    return notification.save();
   }
 
-  async getStoreNotifications(
-    storeId: string,
-  ): Promise<PlatformNotification[]> {
-    return this.notificationModel
-      .find({ storeId: new Types.ObjectId(storeId) })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .exec();
+  async getStoreNotifications(storeId: string): Promise<PlatformNotification[]> {
+    return this.prisma.client.platformNotification.findMany({
+      where: { storeId },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    });
   }
 
   async getGlobalNotifications(): Promise<PlatformNotification[]> {
-    return this.notificationModel
-      .find({ storeId: { $exists: false } })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .exec();
+    return this.prisma.client.platformNotification.findMany({
+      where: { storeId: null },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    });
   }
 
   async markAsRead(id: string): Promise<PlatformNotification | null> {
-    return this.notificationModel
-      .findByIdAndUpdate(id, { isRead: true }, { new: true })
-      .exec();
+    try {
+      return await this.prisma.client.platformNotification.update({
+        where: { id },
+        data: { isRead: true }
+      });
+    } catch {
+      return null;
+    }
   }
 
   async markAllAsRead(storeId: string): Promise<{ modifiedCount: number }> {
-    const result = await this.notificationModel.updateMany(
-      { storeId: new Types.ObjectId(storeId), isRead: false },
-      { $set: { isRead: true } },
-    );
-    return { modifiedCount: result.modifiedCount };
+    const result = await this.prisma.client.platformNotification.updateMany({
+      where: { storeId, isRead: false },
+      data: { isRead: true }
+    });
+    return { modifiedCount: result.count };
   }
 
-  // CRON JOBS for Automated Notifications
-
-  // Runs every day at midnight to check expiring subscriptions
-  @Cron('0 0 * * *') // EVERY_DAY_AT_MIDNIGHT
+  @Cron('0 0 * * *')
   async checkExpiringSubscriptions() {
     this.logger.log('Running daily subscription check...');
     const today = new Date();
     const threeDaysFromNow = new Date();
     threeDaysFromNow.setDate(today.getDate() + 3);
 
-    // Find active stores with subscription ending within 3 days
-    const storesExpiringSoon = await this.storeModel
-      .find({
-        status: StoreStatus.ACTIVE,
-        'subscription.renewalDate': {
-          $gte: today,
-          $lte: threeDaysFromNow,
-        },
-      })
-      .exec();
+    // In prisma, subscription is a JSON field on Store.
+    // We fetch all active stores and parse the subscription field manually.
+    const activeStores = await this.prisma.client.store.findMany({
+      where: { status: StoreStatus.ACTIVE }
+    });
 
-    for (const store of storesExpiringSoon) {
-      await this.create({
-        title: 'Subscription Expiring Soon',
-        message: `Your subscription will renew/expire on ${store.subscription?.renewalDate?.toLocaleDateString() ?? 'soon'}. Please ensure your payment method is up to date.`,
-        type: NotificationType.WARNING,
-        storeId: store._id.toString(),
-      });
-    }
+    for (const store of activeStores) {
+      const sub = store.subscription as any;
+      if (!sub || !sub.renewalDate) continue;
 
-    // Find stores that have expired
-    const expiredStores = await this.storeModel
-      .find({
-        status: StoreStatus.ACTIVE,
-        'subscription.renewalDate': {
-          $lt: today,
-        },
-      })
-      .exec();
+      const renewalDate = new Date(sub.renewalDate);
 
-    for (const store of expiredStores) {
-      await this.create({
-        title: 'Subscription Expired',
-        message:
-          'Your subscription has expired. Some features may be restricted until payment is updated.',
-        type: NotificationType.ERROR,
-        storeId: store._id.toString(),
-      });
-      // Optionally auto-suspend them or downgrade plan here.
+      if (renewalDate >= today && renewalDate <= threeDaysFromNow) {
+        await this.create({
+          title: 'Subscription Expiring Soon',
+          message: `Your subscription will renew/expire on ${renewalDate.toLocaleDateString()}. Please ensure your payment method is up to date.`,
+          type: NotificationType.WARNING,
+          storeId: store.id,
+        } as any);
+      } else if (renewalDate < today) {
+        await this.create({
+          title: 'Subscription Expired',
+          message: 'Your subscription has expired. Some features may be restricted until payment is updated.',
+          type: NotificationType.ERROR,
+          storeId: store.id,
+        } as any);
+      }
     }
   }
 }

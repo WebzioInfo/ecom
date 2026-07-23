@@ -7,7 +7,7 @@ import {
   IsBoolean,
   IsDateString,
 } from 'class-validator';
-import { DiscountType } from '../schemas/coupon.schema';
+import {  DiscountType  } from '@prisma/client';
 
 export class CreateCouponDto {
   @IsString()

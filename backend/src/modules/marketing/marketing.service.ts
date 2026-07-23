@@ -3,49 +3,53 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Coupon, CouponDocument, DiscountType } from './schemas/coupon.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, Coupon, DiscountType } from '@prisma/client';
 import { CreateCouponDto, UpdateCouponDto } from './dto/coupon.dto';
 
 @Injectable()
 export class MarketingService {
-  constructor(
-    @InjectModel(Coupon.name) private couponModel: Model<CouponDocument>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateCouponDto): Promise<Coupon> {
-    const existing = await this.couponModel.findOne({
-      storeId: new Types.ObjectId(dto.storeId),
-      code: dto.code.toUpperCase(),
+    const existing = await this.prisma.client.coupon.findUnique({
+      where: {
+        storeId_code: {
+          storeId: dto.storeId,
+          code: dto.code.toUpperCase(),
+        }
+      }
     });
 
     if (existing) {
-      throw new BadRequestException(
-        `Coupon code '${dto.code}' already exists for this store`,
-      );
+      throw new BadRequestException(`Coupon code '${dto.code}' already exists for this store`);
     }
 
-    const coupon = new this.couponModel({
-      ...dto,
-      code: dto.code.toUpperCase(),
-      storeId: new Types.ObjectId(dto.storeId),
+    return this.prisma.client.coupon.create({
+      data: {
+        ...dto,
+        type: dto.type as DiscountType,
+        code: dto.code.toUpperCase(),
+        startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+      } as any
     });
-    return coupon.save();
   }
 
   async findByStore(storeId: string) {
-    return this.couponModel
-      .find({ storeId: new Types.ObjectId(storeId) })
-      .sort({ createdAt: -1 })
-      .exec();
+    return this.prisma.client.coupon.findMany({
+      where: { storeId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async validateCoupon(storeId: string, code: string, cartTotal: number) {
-    const coupon = await this.couponModel.findOne({
-      storeId: new Types.ObjectId(storeId),
-      code: code.toUpperCase(),
-      isActive: true,
+    const coupon = await this.prisma.client.coupon.findFirst({
+      where: {
+        storeId,
+        code: code.toUpperCase(),
+        isActive: true,
+      }
     });
 
     if (!coupon) {
@@ -61,9 +65,7 @@ export class MarketingService {
     }
 
     if (cartTotal < coupon.minOrderAmount) {
-      throw new BadRequestException(
-        `Minimum order amount of $${coupon.minOrderAmount} required`,
-      );
+      throw new BadRequestException(`Minimum order amount of $${coupon.minOrderAmount} required`);
     }
 
     let discountAmount = 0;
@@ -83,16 +85,22 @@ export class MarketingService {
   }
 
   async update(id: string, dto: UpdateCouponDto): Promise<Coupon> {
-    const coupon = await this.couponModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true })
-      .exec();
-    if (!coupon) throw new NotFoundException(`Coupon #${id} not found`);
-    return coupon;
+    try {
+      return await this.prisma.client.coupon.update({
+        where: { id },
+        data: dto as any
+      });
+    } catch {
+      throw new NotFoundException(`Coupon #${id} not found`);
+    }
   }
 
   async remove(id: string): Promise<{ message: string }> {
-    const coupon = await this.couponModel.findByIdAndDelete(id).exec();
-    if (!coupon) throw new NotFoundException(`Coupon #${id} not found`);
-    return { message: `Coupon #${id} deleted successfully` };
+    try {
+      await this.prisma.client.coupon.delete({ where: { id } });
+      return { message: `Coupon #${id} deleted successfully` };
+    } catch {
+      throw new NotFoundException(`Coupon #${id} not found`);
+    }
   }
 }

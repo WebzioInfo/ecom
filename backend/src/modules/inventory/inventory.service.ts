@@ -1,32 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Warehouse, WarehouseDocument } from './schemas/warehouse.schema';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma, Warehouse } from '@prisma/client';
 import { CreateWarehouseDto, AdjustStockDto } from './dto/inventory.dto';
 
 @Injectable()
 export class InventoryService {
-  constructor(
-    @InjectModel(Warehouse.name)
-    private warehouseModel: Model<WarehouseDocument>,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async createWarehouse(dto: CreateWarehouseDto): Promise<Warehouse> {
-    const warehouse = new this.warehouseModel({
-      ...dto,
-      storeId: new Types.ObjectId(dto.storeId),
+    return this.prisma.client.warehouse.create({
+      data: {
+        ...dto,
+        storeId: dto.storeId,
+      } as any
     });
-    return warehouse.save();
   }
 
   async findWarehousesByStore(storeId: string) {
-    return this.warehouseModel
-      .find({ storeId: new Types.ObjectId(storeId) })
-      .exec();
+    return this.prisma.client.warehouse.findMany({
+      where: { storeId }
+    });
   }
 
   adjustStock(dto: AdjustStockDto) {
-    // Audit log / Stock level update handler
     return {
       storeId: dto.storeId,
       warehouseId: dto.warehouseId,

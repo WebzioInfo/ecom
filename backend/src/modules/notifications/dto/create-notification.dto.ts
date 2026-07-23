@@ -6,7 +6,7 @@ import {
   IsMongoId,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { NotificationType } from '../schemas/notification.schema';
+import {  NotificationType  } from '@prisma/client';
 
 export class CreateNotificationDto {
   @ApiProperty({ description: 'Notification Title' })

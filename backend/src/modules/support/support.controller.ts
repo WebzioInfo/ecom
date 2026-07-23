@@ -16,7 +16,7 @@ import { ReplyTicketDto } from './dto/reply-ticket.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { TicketStatus, TicketType } from './schemas/ticket.schema';
+import {  TicketStatus, TicketType  } from '@prisma/public-client';
 import type { AuthenticatedRequest } from '../../common/interfaces/request.interface';
 
 @ApiTags('Support')

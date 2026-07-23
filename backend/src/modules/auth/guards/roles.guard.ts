@@ -32,10 +32,7 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied');
     }
 
-    // Super Admin has universal access across all routes
-    if (user.isSuperAdmin) {
-      return true;
-    }
+
 
     const userRolesLower = (user.roles || []).map((r) => r.toLowerCase());
     if (user.role) userRolesLower.push(user.role.toLowerCase());

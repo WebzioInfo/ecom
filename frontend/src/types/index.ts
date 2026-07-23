@@ -1,4 +1,4 @@
-export type Role = 'super_admin' | 'company_admin' | 'manager' | 'staff' | 'support' | 'developer' | 'admin' | 'user';
+export type Role = 'admin' | 'user';
 
 export interface UserProfile {
   _id: string;
@@ -10,7 +10,6 @@ export interface UserProfile {
   permissions?: string[];
   storeId?: string;
   isVerified?: boolean;
-  isSuperAdmin?: boolean;
 }
 
 export interface LoginPayload {

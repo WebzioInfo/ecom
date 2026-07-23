@@ -37,7 +37,12 @@ export class AuthController {
       'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    return this.authService.login(loginDto, clientIp, userAgent);
+    try {
+      return await this.authService.login(loginDto, clientIp, userAgent);
+    } catch (error: any) {
+      // The service layer logs the error. We just rethrow it here so it's handled by NestJS natively.
+      throw error;
+    }
   }
 
   @Post('refresh')
@@ -60,8 +65,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get authenticated user profile' })
-  async getProfile(@Req() req: ExpressRequest & { user: { userId: string, isSuperAdmin: boolean } }) {
-    return this.authService.getProfile(req.user.userId, req.user.isSuperAdmin);
+  async getProfile(@Req() req: ExpressRequest & { user: { userId: string } }) {
+    return this.authService.getProfile(req.user.userId);
   }
 
   @Post('forgot-password')

@@ -25,7 +25,7 @@ interface Product {
 
 export default function Account() {
   const router = useRouter();
-  const [user, setUser] = useState<unknown | null>(null);
+  const [user, setUser] = useState<Record<string, any> | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlistProducts, setWishlistProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);

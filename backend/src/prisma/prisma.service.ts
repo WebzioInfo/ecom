@@ -13,7 +13,7 @@ export interface TenantContext {
 
 export const tenantContextStorage = new AsyncLocalStorage<TenantContext>();
 
-const PUBLIC_MODELS = ['superAdmin', 'store', 'apiKey', 'plan', 'ticket', 'userRegistry'];
+const PUBLIC_MODELS = ['store', 'apiKey', 'plan', 'ticket', 'userRegistry'];
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {

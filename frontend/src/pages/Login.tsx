@@ -22,7 +22,7 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate({ email, password }, { 
+    loginMutation.mutate({ email, password }, {
       onSuccess,
       onError: (err: any) => {
         toast.error(err.response?.data?.message || 'Invalid credentials');

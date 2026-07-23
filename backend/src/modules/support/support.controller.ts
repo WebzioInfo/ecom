@@ -135,10 +135,10 @@ export class SupportController {
   @ApiOperation({
     summary: 'Super Admin: Assign ticket to self or another super admin',
   })
-  assignTicket(
+  async assignTicket(
     @Param('id') id: string,
-    @Body('superAdminId') superAdminId: string,
+    @Body('adminId') adminId: string,
   ) {
-    return this.supportService.assignTicket(id, superAdminId);
+    return this.supportService.assignTicket(id, adminId);
   }
 }

@@ -139,13 +139,13 @@ export class SupportService {
     }
   }
 
-  async assignTicket(ticketId: string, superAdminId: string): Promise<Ticket> {
+  async assignTicket(ticketId: string, adminId: string): Promise<Ticket> {
     try {
-      return await this.prisma.client.ticket.update({
+      return await this.prisma.public.ticket.update({
         where: { id: ticketId },
-        data: { assignedToId: superAdminId }
+        data: { assignedToId: adminId }
       });
-    } catch {
+    } catch (error) {
       throw new NotFoundException(`Ticket #${ticketId} not found`);
     }
   }

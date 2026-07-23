@@ -26,7 +26,7 @@ export default function Login() {
       
       alert('Logged in successfully!');
       router.push('/account');
-    } catch (err: unknown) {
+    } catch (err: any) {
       alert(`Login failed: ${err.response?.data?.message || err.message}`);
     }
     setLoading(false);

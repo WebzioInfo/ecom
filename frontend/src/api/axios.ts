@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1';
 
 export const api = axios.create({
   baseURL,
@@ -14,7 +14,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('access_token');
   const activeStoreId = localStorage.getItem('active_store_id');
   
-  const isAuthRoute = config.url && (config.url.includes('/auth/login') || config.url.includes('/super-admin-auth/login'));
+  const isAuthRoute = config.url && config.url.includes('/auth/login');
 
   if (token && config.headers && !isAuthRoute) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -75,9 +75,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Determine if it's a super admin or store admin route
-        const isSuperAdminRoute = originalRequest.url?.includes('/super-admin') || window.location.pathname.includes('/super-admin');
-        const refreshUrl = isSuperAdminRoute ? '/super-admin/auth/refresh' : '/auth/refresh';
+        const refreshUrl = '/auth/refresh';
 
         const { data } = await axios.post(`${baseURL}${refreshUrl}`, { refresh_token: refreshToken });
         

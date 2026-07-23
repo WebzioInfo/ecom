@@ -10,8 +10,6 @@ export interface AuthenticatedUser {
   roles?: string[];
   role?: string;
   type?: string;
-  isSuperAdmin?: boolean;
-  isPlatformAdmin?: boolean;
   permissions?: string[];
   schemaName?: string;
 }

@@ -28,8 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       storeId: payload.storeId,
       tenantId: payload.tenantId,
       schemaName: payload.schemaName,
-      isSuperAdmin: payload.isSuperAdmin,
-      isPlatformAdmin: payload.isPlatformAdmin,
     };
   }
 }

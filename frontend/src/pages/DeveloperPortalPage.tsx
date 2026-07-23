@@ -119,7 +119,7 @@ export default function DeveloperPortalPage() {
       <div className="p-5 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-3">
         <h3 className="text-sm font-bold text-slate-200">Headless API Endpoint Integration Example</h3>
         <pre className="p-4 bg-slate-950 rounded-lg text-[11px] font-mono text-slate-300 overflow-x-auto border border-slate-800">
-{`curl -X GET "http://localhost:3000/api/storefront/v1/products" \\
+{`curl -X GET "http://localhost:4000/api/v1/storefront/products" \\
   -H "x-api-key: wbx_live_YOUR_API_KEY"`}
         </pre>
       </div>

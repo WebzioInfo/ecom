@@ -47,22 +47,6 @@ async function main() {
     },
   });
 
-  // 2. Seed SuperAdmin (Public)
-  console.log('Seeding SuperAdmin...');
-  const superAdmin = await prisma.public.superAdmin.upsert({
-    where: { email: 'admin@webzio.com' },
-    update: {},
-    create: {
-      name: 'Webzio Admin',
-      email: 'admin@webzio.com',
-      password: passwordHash,
-      role: 'SUPER_ADMIN',
-      status: 'ACTIVE',
-      emailVerified: true,
-      isActive: true,
-      mustChangePassword: false,
-    },
-  });
 
   // 3. Define Tenants (Stores)
   const storesToSeed = [

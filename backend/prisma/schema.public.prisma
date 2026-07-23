@@ -27,25 +27,7 @@ enum TicketType {
   GENERAL_SUPPORT
 }
 
-model SuperAdmin {
-  id                 String    @id @default(uuid())
-  name               String
-  email              String    @unique
-  password           String
-  avatar             String?
-  phone              String?
-  role               String    @default("SUPER_ADMIN")
-  status             String    @default("ACTIVE")
-  emailVerified      Boolean   @default(false)
-  lastLogin          DateTime?
-  isActive           Boolean   @default(true)
-  mustChangePassword Boolean   @default(false)
-  loginHistory       Json      @default("[]") 
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
 
-  assignedTickets    Ticket[]  @relation("AssignedTickets")
-}
 
 model Store {
   id              String      @id @default(uuid())
@@ -118,7 +100,6 @@ model Ticket {
   store      Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
   createdById String      // Logical reference to User in tenant schema
   assignedToId String?
-  assignedTo SuperAdmin?  @relation("AssignedTickets", fields: [assignedToId], references: [id])
   messages   Json         @default("[]") 
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt

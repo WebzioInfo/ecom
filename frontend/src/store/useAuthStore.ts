@@ -9,7 +9,6 @@ export interface AuthUser {
   role?: string;
   permissions?: string[];
   storeId?: string;
-  isSuperAdmin?: boolean;
 }
 
 interface AuthState {
@@ -49,11 +48,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: profile._id || profile.id || '',
         email: profile.email,
         name: profile.name,
-        roles: profile.roles || ['staff'],
+        roles: profile.roles || ['admin'],
         role: profile.role,
         permissions: profile.permissions || [],
         storeId: profile.storeId,
-        isSuperAdmin: profile.isSuperAdmin || profile.role === 'super_admin',
       };
       set({
         user,

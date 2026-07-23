@@ -17,18 +17,11 @@ export class TenantInterceptor implements NestInterceptor {
     const apiKeyHeader = request.headers['x-api-key'] as string | undefined;
 
     if (request.user) {
-      if (!request.user.isSuperAdmin) {
-        // Strict tenant isolation: Store Admins can ONLY use their assigned storeId
-        if (request.user.storeId) {
-          request.storeId = request.user.storeId;
-        } else if (request.user.tenantId) {
-          request.tenantId = request.user.tenantId;
-        }
-      } else {
-        // Super Admin can override tenant context via header
-        if (storeIdHeader) {
-          request.storeId = storeIdHeader;
-        }
+      // Strict tenant isolation: Store Admins can ONLY use their assigned storeId
+      if (request.user.storeId) {
+        request.storeId = request.user.storeId;
+      } else if (request.user.tenantId) {
+        request.tenantId = request.user.tenantId;
       }
     } else if (storeIdHeader) {
       // Allow for public/storefront API if no user is present

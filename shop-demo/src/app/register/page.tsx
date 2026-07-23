@@ -21,7 +21,7 @@ export default function Register() {
       await api.post('/auth/register', { name, email, password });
       alert('Registration successful! Please login.');
       window.location.href = '/login';
-    } catch (err: unknown) {
+    } catch (err: any) {
       alert(`Registration failed: ${err.response?.data?.message || err.message}`);
     }
     setLoading(false);

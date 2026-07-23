@@ -6,8 +6,6 @@ export interface JwtPayload {
   storeId?: string;
   tenantId?: string;
   schemaName?: string;
-  isSuperAdmin: boolean;
-  isPlatformAdmin: boolean;
   iat?: number;
   exp?: number;
 }

@@ -47,11 +47,16 @@ export class TenantMiddleware implements NestMiddleware {
     // If still no storeId, check if we can resolve from a UserRegistry query for login attempts
     const isLoginRoute = req.url && req.url.includes('/auth/login');
     if (!storeId && isLoginRoute && req.body && req.body.email) {
-      const registry = await this.prisma.public.userRegistry.findFirst({
-        where: { email: req.body.email },
-      });
-      if (registry) {
-        storeId = registry.storeId;
+      try {
+        const registry = await this.prisma.public.userRegistry.findFirst({
+          where: { email: req.body.email },
+        });
+        if (registry) {
+          storeId = registry.storeId;
+        }
+      } catch (error) {
+        console.error('Database connection error in UserRegistry lookup:', error);
+        // We gracefully fail here so it can reach the AuthController and return a clean error if needed.
       }
     }
 

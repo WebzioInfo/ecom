@@ -11,8 +11,6 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CartModule } from './modules/cart/cart.module';
-import { SuperAdminsModule } from './modules/super-admins/super-admins.module';
-import { SuperAdminAuthModule } from './modules/super-admin-auth/super-admin-auth.module';
 import { StoresModule } from './modules/stores/stores.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { CustomersModule } from './modules/customers/customers.module';
@@ -38,8 +36,6 @@ import { ScheduleModule } from '@nestjs/schedule';
     PrismaModule,
     UsersModule,
     AuthModule,
-    SuperAdminsModule,
-    SuperAdminAuthModule,
     ProductsModule,
     OrdersModule,
     CartModule,

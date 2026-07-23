@@ -21,7 +21,7 @@ export default function Cart() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [couponLoading, setCouponLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [orderReceipt, setOrderReceipt] = useState<unknown | null>(null);
+  const [orderReceipt, setOrderReceipt] = useState<Record<string, any> | null>(null);
 
   const loadCart = () => {
     try {
@@ -60,7 +60,7 @@ export default function Cart() {
       const res = await api.post('/marketing/coupons/validate', { code: couponCode });
       setDiscountPercent(res.data.value || 10);
       alert('Coupon code applied successfully!');
-    } catch (err: unknown) {
+    } catch (err: any) {
       alert(`Invalid Coupon Code: ${err.response?.data?.message || err.message}`);
     }
     setCouponLoading(false);
@@ -88,7 +88,7 @@ export default function Cart() {
       setOrderReceipt(res.data);
       setCart([]);
       localStorage.setItem('shop_cart', JSON.stringify([]));
-    } catch (err: unknown) {
+    } catch (err: any) {
       alert(`Checkout failed: ${err.response?.data?.message || err.message}`);
     }
     setCheckoutLoading(false);

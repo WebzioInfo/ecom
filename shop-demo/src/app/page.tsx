@@ -67,7 +67,7 @@ export default function Catalog() {
   const addToCart = (product: Product) => {
     try {
       const cart = JSON.parse(localStorage.getItem('shop_cart') || '[]');
-      const exists = cart.find((item: unknown) => item.id === product.id);
+      const exists = cart.find((item: any) => item.id === product.id);
       if (exists) {
         exists.qty += 1;
       } else {

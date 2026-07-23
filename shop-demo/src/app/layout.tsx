@@ -41,7 +41,7 @@ export default function RootLayout({
     const updateCartCount = () => {
       try {
         const cartData = JSON.parse(localStorage.getItem('shop_cart') || '[]');
-        const count = cartData.reduce((acc: number, item: unknown) => acc + item.qty, 0);
+        const count = cartData.reduce((acc: number, item: any) => acc + item.qty, 0);
         setCartCount(count);
       } catch {
         setCartCount(0);
@@ -66,7 +66,7 @@ export default function RootLayout({
         setStores(res.data);
         // Automatically default context to Electronics Hub if none set
         if (!localStorage.getItem('shop_store_id') && res.data.length > 0) {
-          const electronics = res.data.find((s: unknown) => s.slug === 'electronics-hub') || res.data[0];
+          const electronics = res.data.find((s: any) => s.slug === 'electronics-hub') || res.data[0];
           const apiKey = `demo_key_${electronics.slug.replace(/-/g, '_')}`;
           localStorage.setItem('shop_store_id', electronics.id);
           localStorage.setItem('shop_api_key', apiKey);

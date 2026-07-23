@@ -21,7 +21,7 @@ export default function Login() {
       const res = await api.post('/auth/login', { email, password });
       
       // Save context
-      localStorage.setItem('shop_token', res.data.token);
+      localStorage.setItem('shop_token', res.data.access_token);
       localStorage.setItem('shop_user', JSON.stringify(res.data.user || { email, role: 'MEMBER' }));
       
       alert('Logged in successfully!');

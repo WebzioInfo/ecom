@@ -46,6 +46,9 @@ async function bootstrap() {
       'Accept',
       'Origin',
       'X-Requested-With',
+      'x-store-id',
+      'x-store-slug',
+      'x-api-key',
     ],
   });
 

@@ -15,12 +15,23 @@ export class TenantMiddleware implements NestMiddleware {
     let schemaName: string | null = null;
 
     const storeIdHeader = req.headers['x-store-id'] as string | undefined;
+    const storeSlugHeader = req.headers['x-store-slug'] as string | undefined;
     const apiKeyHeader = req.headers['x-api-key'] as string | undefined;
     const authHeader = req.headers['authorization'];
 
     // 1. Check x-store-id header
     if (storeIdHeader) {
       storeId = storeIdHeader;
+    }
+
+    // 1.5 Check x-store-slug header
+    if (!storeId && storeSlugHeader) {
+      const storeDoc = await this.prisma.public.store.findUnique({
+        where: { slug: storeSlugHeader },
+      });
+      if (storeDoc) {
+        storeId = storeDoc.id;
+      }
     }
 
     // 2. Resolve from API key if present
@@ -44,21 +55,9 @@ export class TenantMiddleware implements NestMiddleware {
       } catch {}
     }
 
-    // If still no storeId, check if we can resolve from a UserRegistry query for login attempts
-    const isLoginRoute = req.url && req.url.includes('/auth/login');
-    if (!storeId && isLoginRoute && req.body && req.body.email) {
-      try {
-        const registry = await this.prisma.public.userRegistry.findFirst({
-          where: { email: req.body.email },
-        });
-        if (registry) {
-          storeId = registry.storeId;
-        }
-      } catch (error) {
-        console.error('Database connection error in UserRegistry lookup:', error);
-        // We gracefully fail here so it can reach the AuthController and return a clean error if needed.
-      }
-    }
+    // If still no storeId, just continue without context
+    // Login endpoints will bypass tenant resolution, while protected tenant endpoints
+    // will be guarded by AuthGuard and TenantGuard
 
     if (!storeId) {
       // Proceed without tenant context (for public endpoints / super-admin)
@@ -84,7 +83,7 @@ export class TenantMiddleware implements NestMiddleware {
       `SELECT EXISTS (
          SELECT FROM information_schema.tables 
          WHERE  table_schema = '${schemaName}'
-         AND    table_name   = 'User'
+         AND    table_name   = 'Product'
        );`
     );
 

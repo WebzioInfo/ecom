@@ -6,10 +6,7 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  USER
-  ADMIN
-}
+
 
 enum DiscountType {
   PERCENTAGE
@@ -32,31 +29,11 @@ enum OrderStatus {
   CANCELLED
 }
 
-model User {
-  id                   String    @id @default(uuid())
-  name                 String
-  email                String    @unique
-  password             String?
-  roles                Role[]    @default([USER])
-  isVerified           Boolean   @default(false)
-  verificationToken    String?
-  resetToken           String?
-  resetTokenExpiration DateTime?
-  wishlist             String[] 
-  refreshToken         String?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  orders               Order[]
-  carts                Cart?
-  auditLogs            AuditLog[]
-}
 
 model AuditLog {
   id          String   @id @default(uuid())
   storeId     String?  // Keep storeId column for backward compatibility (logical reference)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String   // Logical reference to User in public schema
   action      String
   entity      String
   entityId    String?
@@ -69,8 +46,7 @@ model AuditLog {
 
 model Cart {
   id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @unique // Logical reference to User in public schema
   items     Json     @default("[]") 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -154,8 +130,7 @@ model PlatformNotification {
 
 model Order {
   id          String      @id @default(uuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String   // Logical reference to User in public schema
   items       Json
   totalAmount Float
   status      OrderStatus @default(PENDING)

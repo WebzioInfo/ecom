@@ -2,8 +2,8 @@ import { prisma } from '../lib/prisma'
 
 async function main() {
   try {
-    const user = await prisma.user.findFirst()
-    console.log('✅ Connected. Found user:', user?.name)
+    const entity = await prisma.product.findFirst()
+    console.log('✅ Connected. Found entity:', entity?.title)
   } catch (err) {
     console.error('Connection failed:', err)
   } finally {

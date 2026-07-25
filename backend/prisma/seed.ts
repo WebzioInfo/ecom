@@ -12,6 +12,10 @@ async function main() {
   const passwordHash = await bcrypt.hash('WebzioAdmin2026!', 10);
   const userPasswordHash = await bcrypt.hash('Password123!', 10);
 
+  // Drop old corrupt tenant schemas
+  await prisma.public.$executeRawUnsafe('DROP SCHEMA IF EXISTS tenant_electronics_hub CASCADE;');
+  await prisma.public.$executeRawUnsafe('DROP SCHEMA IF EXISTS tenant_fashion_boutique CASCADE;');
+
   // 1. Seed Plans (Public)
   console.log('Seeding Plans...');
   const basicPlan = await prisma.public.plan.upsert({
@@ -102,6 +106,20 @@ async function main() {
     // Create user ID manually so we can reference it in registry and schema
     const ownerUserId = crypto.randomUUID();
 
+    // 1. Seed Owner User FIRST to satisfy foreign key constraint
+    const user = await prisma.public.user.upsert({
+      where: { email: st.ownerEmail },
+      update: {},
+      create: {
+        id: ownerUserId,
+        name: `${st.name} Owner`,
+        email: st.ownerEmail,
+        password: userPasswordHash,
+        roles: ['STORE_OWNER'],
+        isVerified: true,
+      },
+    });
+
     // Seed Store Registry (Public)
     const store = await prisma.public.store.upsert({
       where: { slug: st.slug },
@@ -117,52 +135,16 @@ async function main() {
       },
     });
 
-    // Seed ApiKeys (Public)
-    const apiKeyStr = `demo_key_${st.slug.replace(/-/g, '_')}`;
-    const webhookSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
-    const secretHash = crypto.createHash('sha256').update(webhookSecret).digest('hex');
-
-    await prisma.public.apiKey.upsert({
-      where: { key: apiKeyStr },
-      update: {},
-      create: {
-        storeId: store.id,
-        name: 'Production Key',
-        key: apiKeyStr,
-        secretHash,
-        webhookSecret,
-        permissions: ['read:products', 'write:orders'],
-      },
-    });
-
-    // Seed User Registry mapping (Public)
+    // Seed User Registry Map
     await prisma.public.userRegistry.upsert({
       where: { email_storeId: { email: st.ownerEmail, storeId: store.id } },
       update: {},
-      create: {
-        email: st.ownerEmail,
-        storeId: store.id,
-        schema: schemaName,
-      },
+      create: { email: st.ownerEmail, storeId: store.id, schema: schemaName },
     });
 
     // Execute tenant data seeding under context (Tenant Schema)
     await tenantContextStorage.run({ storeId: store.id, schemaName, client }, async () => {
       console.log(`Seeding dynamic tenant data inside ${schemaName}...`);
-
-      // Seed Store User
-      const user = await prisma.client.user.upsert({
-        where: { email: st.ownerEmail },
-        update: {},
-        create: {
-          id: ownerUserId,
-          name: `${st.name} Owner`,
-          email: st.ownerEmail,
-          password: userPasswordHash,
-          roles: ['ADMIN'],
-          isVerified: true,
-        },
-      });
 
       // Seed Products
       for (const p of st.products) {
@@ -253,30 +235,47 @@ async function main() {
     const shopperEmail = 'customer@test.com';
     await prisma.public.userRegistry.upsert({
       where: { email_storeId: { email: shopperEmail, storeId: elecStore.id } },
-      update: {},
-      create: {
-        email: shopperEmail,
-        storeId: elecStore.id,
-        schema: 'tenant_electronics_hub',
-      },
+      update: { schema: 'tenant_electronics_hub' },
+      create: { email: shopperEmail, storeId: elecStore.id, schema: 'tenant_electronics_hub' },
+    });
+    await prisma.public.user.upsert({
+      where: { email: shopperEmail },
+      update: { password: userPasswordHash, roles: ['USER'], isVerified: true },
+      create: { name: 'Test Customer', email: shopperEmail, password: userPasswordHash, roles: ['USER'], isVerified: true },
     });
 
-    const client = prisma.getTenantClient('tenant_electronics_hub');
-    await tenantContextStorage.run({ storeId: elecStore.id, schemaName: 'tenant_electronics_hub', client }, async () => {
-      const exists = await prisma.client.user.findUnique({ where: { email: shopperEmail } });
-      if (!exists) {
-        await prisma.client.user.create({
-          data: {
-            name: 'Test Customer',
-            email: shopperEmail,
-            password: userPasswordHash,
-            roles: ['USER'],
-            isVerified: true,
-          },
-        });
-      }
+    const managerEmail = 'manager@electronics.com';
+    await prisma.public.userRegistry.upsert({
+      where: { email_storeId: { email: managerEmail, storeId: elecStore.id } },
+      update: { schema: 'tenant_electronics_hub' },
+      create: { email: managerEmail, storeId: elecStore.id, schema: 'tenant_electronics_hub' },
+    });
+    await prisma.public.user.upsert({
+      where: { email: managerEmail },
+      update: { password: userPasswordHash, roles: ['STORE_MANAGER'], isVerified: true },
+      create: { name: 'Test Manager', email: managerEmail, password: userPasswordHash, roles: ['STORE_MANAGER'], isVerified: true },
+    });
+
+    const employeeEmail = 'employee@electronics.com';
+    await prisma.public.userRegistry.upsert({
+      where: { email_storeId: { email: employeeEmail, storeId: elecStore.id } },
+      update: { schema: 'tenant_electronics_hub' },
+      create: { email: employeeEmail, storeId: elecStore.id, schema: 'tenant_electronics_hub' },
+    });
+    await prisma.public.user.upsert({
+      where: { email: employeeEmail },
+      update: { password: userPasswordHash, roles: ['STORE_EMPLOYEE'], isVerified: true },
+      create: { name: 'Test Employee', email: employeeEmail, password: userPasswordHash, roles: ['STORE_EMPLOYEE'], isVerified: true },
     });
   }
+
+  // Seed Super Admin (Platform)
+  const superAdminEmail = 'admin@platform.com';
+  await prisma.public.user.upsert({
+    where: { email: superAdminEmail },
+    update: { password: userPasswordHash, roles: ['SUPER_ADMIN'], isVerified: true },
+    create: { name: 'Platform Admin', email: superAdminEmail, password: userPasswordHash, roles: ['SUPER_ADMIN'], isVerified: true },
+  });
 
   console.log('✅ Multi-tenant seed completed successfully!');
 }

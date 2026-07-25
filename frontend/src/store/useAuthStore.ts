@@ -8,6 +8,8 @@ export interface AuthUser {
   roles: string[];
   role?: string;
   permissions?: string[];
+  accessibleModules?: string[];
+  isSuperAdmin?: boolean;
   storeId?: string;
 }
 
@@ -51,6 +53,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         roles: profile.roles || ['admin'],
         role: profile.role,
         permissions: profile.permissions || [],
+        accessibleModules: profile.accessibleModules || ['dashboard'],
+        isSuperAdmin: profile.isSuperAdmin,
         storeId: profile.storeId,
       };
       set({

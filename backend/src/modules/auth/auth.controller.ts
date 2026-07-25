@@ -9,9 +9,12 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
+import { Logger } from '@nestjs/common';
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
@@ -36,10 +39,17 @@ export class AuthController {
       req.socket?.remoteAddress ||
       'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
+    const storeSlug = req.headers['x-store-slug'];
+    const storeId = req.headers['x-store-id'];
+
+    this.logger.log(`Login attempt for ${loginDto.email} from IP: ${clientIp}. Provided headers - x-store-slug: ${storeSlug || 'none'}, x-store-id: ${storeId || 'none'}`);
 
     try {
-      return await this.authService.login(loginDto, clientIp, userAgent);
+      const result = await this.authService.login(loginDto, clientIp, userAgent, storeId as string, storeSlug as string);
+      this.logger.log(`Login successful for ${loginDto.email}`);
+      return result;
     } catch (error: any) {
+      this.logger.warn(`Login failed for ${loginDto.email}: ${error.message}`);
       // The service layer logs the error. We just rethrow it here so it's handled by NestJS natively.
       throw error;
     }

@@ -9,23 +9,30 @@ export default function Login() {
   const { loginMutation } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [storeSlug, setStoreSlug] = useState('');
+
+  // Check if we already have a subdomain determining the store slug
+  const hostname = window.location.hostname;
+  const parts = hostname.split('.');
+  const hasSubdomain = parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'app' && parts[0] !== 'admin';
 
   const onSuccess = (data: any) => {
     toast.success('Welcome back!');
-    const userRoles = data.user?.roles || [];
-    if (data.user?.isSuperAdmin || userRoles.includes('super_admin') || userRoles.includes('admin')) {
-      navigate('/super-admin/dashboard');
+    const userRole = (data.user?.role || data.user?.roles?.[0] || '').toUpperCase();
+    if (data.user?.isSuperAdmin || userRole === 'SUPER_ADMIN') {
+      navigate('/admin/dashboard');
     } else {
-      navigate('/admin');
+      navigate('/store/dashboard');
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate({ email, password }, {
+    loginMutation.mutate({ email, password, storeSlug: storeSlug || undefined }, {
       onSuccess,
       onError: (err: any) => {
-        toast.error(err.response?.data?.message || 'Invalid credentials');
+        const msg = err.response?.data?.message;
+        toast.error(Array.isArray(msg) ? msg.join(', ') : (msg || 'Invalid credentials'));
       }
     });
   };
@@ -40,10 +47,30 @@ export default function Login() {
         <form className="space-y-6" onSubmit={handleSubmit}>
           {loginMutation.isError && (
             <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-100">
-              Invalid credentials.
+              {(() => {
+                const err: any = loginMutation.error;
+                const msg = err?.response?.data?.message;
+                if (Array.isArray(msg)) return msg.join(', ');
+                return msg || 'Invalid credentials.';
+              })()}
             </div>
           )}
           <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            {!hasSubdomain && (
+              <div>
+                <label htmlFor="storeSlug" className="block text-sm font-medium text-slate-700">
+                  Workspace Slug <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  id="storeSlug"
+                  type="text"
+                  value={storeSlug}
+                  onChange={(event) => setStoreSlug(event.target.value)}
+                  placeholder="e.g. acme-corp"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700">
                 Email address

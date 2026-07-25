@@ -4,10 +4,10 @@ import { useAuthStore } from '../store/useAuthStore';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRoles?: string[];
+  allowedRoles?: string[];
 }
 
-export const ProtectedRoute = ({ children, requiredRoles }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { isAuthenticated, isInitializing, user } = useAuthStore();
 
   if (isInitializing) {
@@ -18,22 +18,22 @@ export const ProtectedRoute = ({ children, requiredRoles }: ProtectedRouteProps)
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRoles && requiredRoles.length > 0) {
-    const userRoles = (user?.roles || []).map((r) => r.toLowerCase());
-    
-    // Check if user has ANY of the required roles
-    const hasRole = requiredRoles.some((role) => userRoles.includes(role.toLowerCase()));
-    
+  if (allowedRoles && allowedRoles.length > 0) {
+    const userRole = (user.role || user.roles?.[0] || '').toUpperCase();
+    const userRolesUpper = (user.roles || []).map((r) => r.toUpperCase());
+    userRolesUpper.push(userRole);
+
+    const hasRole = allowedRoles.some((role) => userRolesUpper.includes(role.toUpperCase()));
+
     if (!hasRole) {
-      // Redirect based on what they are
-      if (userRoles.includes('super_admin') || userRoles.includes('admin')) {
-        return <Navigate to="/super-admin" replace />;
+      if (userRole === 'SUPER_ADMIN' || userRolesUpper.includes('SUPER_ADMIN')) {
+        return <Navigate to="/admin/dashboard" replace />;
       }
-      return <Navigate to="/admin" replace />;
+      return <Navigate to="/store/dashboard" replace />;
     }
   }
 

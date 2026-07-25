@@ -1,26 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { User, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/public-client';
+import { User } from '@prisma/public-client';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.prisma.client.user.findUnique({ where: { email } });
+    return this.prisma.public.user.findUnique({ where: { email } });
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.prisma.client.user.findUnique({ where: { id } });
+    return this.prisma.public.user.findUnique({ where: { id } });
   }
 
   async create(userData: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.client.user.create({ data: userData });
+    return this.prisma.public.user.create({ data: userData });
   }
 
   async updateProfile(id: string, updateUserDto: Prisma.UserUpdateInput): Promise<User> {
     try {
-      return await this.prisma.client.user.update({
+      return await this.prisma.public.user.update({
         where: { id },
         data: updateUserDto,
       });
@@ -30,15 +31,15 @@ export class UsersService {
   }
 
   async findByResetToken(token: string): Promise<User | null> {
-    return this.prisma.client.user.findFirst({ where: { resetToken: token } });
+    return this.prisma.public.user.findFirst({ where: { resetToken: token } });
   }
 
   async findByVerificationToken(token: string): Promise<User | null> {
-    return this.prisma.client.user.findFirst({ where: { verificationToken: token } });
+    return this.prisma.public.user.findFirst({ where: { verificationToken: token } });
   }
 
   async getWishlist(userId: string) {
-    const user = await this.prisma.client.user.findUnique({
+    const user = await this.prisma.public.user.findUnique({
       where: { id: userId },
       select: { wishlist: true },
     });
@@ -53,13 +54,13 @@ export class UsersService {
   }
 
   async addToWishlist(userId: string, productId: string) {
-    const user = await this.prisma.client.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.public.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     
     const wishlist = new Set(user.wishlist);
     wishlist.add(productId);
     
-    const updated = await this.prisma.client.user.update({
+    const updated = await this.prisma.public.user.update({
       where: { id: userId },
       data: { wishlist: Array.from(wishlist) }
     });
@@ -68,12 +69,12 @@ export class UsersService {
   }
 
   async removeFromWishlist(userId: string, productId: string) {
-    const user = await this.prisma.client.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.public.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     
     const wishlist = user.wishlist.filter((id: any) => id !== productId);
     
-    const updated = await this.prisma.client.user.update({
+    const updated = await this.prisma.public.user.update({
       where: { id: userId },
       data: { wishlist }
     });

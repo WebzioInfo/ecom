@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Patch,
+  Delete,
   Query,
   UseGuards,
   Request,
@@ -16,7 +17,7 @@ import { ReplyTicketDto } from './dto/reply-ticket.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import {  TicketStatus, TicketType  } from '@prisma/public-client';
+import { TicketStatus, TicketType } from '@prisma/public-client';
 import type { AuthenticatedRequest } from '../../common/interfaces/request.interface';
 
 @ApiTags('Support')
@@ -29,28 +30,27 @@ export class SupportController {
   // ─── Store Admin Routes ────────────────────────────────────────────────────────
 
   @Post('tenant')
-  @Roles('company_admin', 'admin', 'staff')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN')
   @ApiOperation({ summary: 'Store Admin: Create a new support ticket' })
   createTicket(
     @Request() req: AuthenticatedRequest,
     @Body() createTicketDto: CreateTicketDto,
   ) {
-    return this.supportService.createTicket(
-      req.user!.storeId!,
-      req.user!.userId || req.user!.id!,
-      createTicketDto,
-    );
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    const storeId = req.user!.storeId!;
+    return this.supportService.createTicket(storeId, userId, createTicketDto);
   }
 
   @Get('tenant')
-  @Roles('company_admin', 'admin', 'staff')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN')
   @ApiOperation({ summary: 'Store Admin: Get all tickets for their store' })
   getStoreTickets(@Request() req: AuthenticatedRequest) {
-    return this.supportService.getTicketsForStore(req.user!.storeId!);
+    const storeId = req.user!.storeId!;
+    return this.supportService.getTicketsForStore(storeId);
   }
 
   @Get('tenant/:id')
-  @Roles('company_admin', 'admin', 'staff')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN')
   @ApiOperation({ summary: 'Store Admin: Get a specific ticket' })
   getStoreTicket(
     @Request() req: AuthenticatedRequest,
@@ -60,30 +60,119 @@ export class SupportController {
   }
 
   @Post('tenant/:id/reply')
-  @Roles('company_admin', 'admin', 'staff')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN')
   @ApiOperation({ summary: 'Store Admin: Reply to a ticket' })
   replyToTicketStore(
     @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() replyDto: ReplyTicketDto,
   ) {
-    // Determine exact role from JWT
-    const role = req.user?.roles?.includes('company_admin')
-      ? 'COMPANY_ADMIN'
-      : 'STAFF';
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    const role = req.user?.role || 'STORE_OWNER';
     return this.supportService.replyToTicket(
       id,
-      req.user!.userId || req.user!.id!,
+      userId,
       role,
       replyDto,
       req.user!.storeId,
     );
   }
 
+  @Patch('read/:id')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Mark messages in ticket as read' })
+  markAsRead(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    return this.supportService.markAsRead(id, userId);
+  }
+
+  // Unified reply route specified in mandate: POST /support/reply
+  @Post('reply')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Unified: Reply to a ticket' })
+  replyToTicketUnified(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: ReplyTicketDto & { ticketId: string },
+  ) {
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.roles?.includes('SUPER_ADMIN' as any);
+    const storeId = isSuperAdmin ? undefined : req.user!.storeId;
+    return this.supportService.replyToTicket(
+      body.ticketId,
+      userId,
+      req.user?.role || 'USER',
+      body,
+      storeId,
+    );
+  }
+
+  @Delete('ticket/:id')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Soft delete a support ticket' })
+  deleteTicket(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.roles?.includes('SUPER_ADMIN' as any);
+    const storeId = isSuperAdmin ? undefined : req.user!.storeId;
+    return this.supportService.softDeleteTicket(id, userId, storeId);
+  }
+
+  @Delete('message/:id')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Soft delete a specific message inside a ticket' })
+  deleteMessage(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') messageId: string,
+    @Query('ticketId') ticketId: string,
+  ) {
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.roles?.includes('SUPER_ADMIN' as any);
+    const storeId = isSuperAdmin ? undefined : req.user!.storeId;
+    return this.supportService.softDeleteMessage(ticketId, messageId, userId, storeId);
+  }
+
+  @Patch('close/:id')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Close a ticket' })
+  closeTicket(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.roles?.includes('SUPER_ADMIN' as any);
+    const storeId = isSuperAdmin ? undefined : req.user!.storeId;
+    return this.supportService.closeTicket(id, userId, storeId);
+  }
+
+  @Patch('reopen/:id')
+  @Roles('STORE_OWNER', 'STORE_MANAGER', 'STORE_EMPLOYEE', 'ADMIN', 'SUPER_ADMIN')
+  @ApiOperation({ summary: 'Reopen a ticket' })
+  reopenTicket(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.roles?.includes('SUPER_ADMIN' as any);
+    const storeId = isSuperAdmin ? undefined : req.user!.storeId;
+    return this.supportService.reopenTicket(id, userId, storeId);
+  }
+
   // ─── Super Admin Routes ────────────────────────────────────────────────────────
 
+  @Get('global/summaries')
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Super Admin: Get all stores with unread counts & last messages' })
+  getStoreSupportSummaries() {
+    return this.supportService.getStoreSupportSummaries();
+  }
+
   @Get('global')
-  @Roles('super_admin')
+  @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Super Admin: Get all tickets globally' })
   getTickets(
     @Query('status') status?: string,
@@ -98,30 +187,31 @@ export class SupportController {
   }
 
   @Get('global/:id')
-  @Roles('super_admin')
+  @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Super Admin: Get ticket details' })
   getGlobalTicket(@Param('id') id: string) {
-    return this.supportService.getTicketById(id); // no storeId constraint
+    return this.supportService.getTicketById(id);
   }
 
   @Post('global/:id/reply')
-  @Roles('super_admin')
+  @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Super Admin: Reply to a ticket' })
   replyToTicketGlobal(
     @Request() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() replyDto: ReplyTicketDto,
   ) {
+    const userId = req.user!.userId || req.user!.id || req.user!.sub!;
     return this.supportService.replyToTicket(
       id,
-      req.user!.userId || req.user!.id!,
+      userId,
       'SUPER_ADMIN',
       replyDto,
     );
   }
 
   @Patch('global/:id/status')
-  @Roles('super_admin')
+  @Roles('SUPER_ADMIN')
   @ApiOperation({ summary: 'Super Admin: Update ticket status' })
   updateTicketStatus(
     @Param('id') id: string,
@@ -131,10 +221,8 @@ export class SupportController {
   }
 
   @Patch('global/:id/assign')
-  @Roles('super_admin')
-  @ApiOperation({
-    summary: 'Super Admin: Assign ticket to self or another super admin',
-  })
+  @Roles('SUPER_ADMIN')
+  @ApiOperation({ summary: 'Super Admin: Assign ticket to self or another super admin' })
   async assignTicket(
     @Param('id') id: string,
     @Body('adminId') adminId: string,

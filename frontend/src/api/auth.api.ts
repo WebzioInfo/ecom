@@ -3,7 +3,9 @@ import { LoginPayload, LoginResponse, RegisterPayload, UserProfile } from '../ty
 
 export const authApi = {
   login: async (payload: LoginPayload) => {
-    const { data } = await api.post<LoginResponse>('/auth/login', payload);
+    const { storeSlug, ...rest } = payload;
+    const config = storeSlug ? { headers: { 'x-store-slug': storeSlug } } : {};
+    const { data } = await api.post<LoginResponse>('/auth/login', rest, config);
     return data;
   },
 

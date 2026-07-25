@@ -31,7 +31,8 @@ export interface PlanFeatures {
 }
 
 export interface Plan {
-  _id: string;
+  id?: string;
+  _id?: string;
   name: string;
   code: string;
   description: string;
@@ -45,9 +46,15 @@ export interface Plan {
   limits: PlanLimits;
   features: PlanFeatures;
   displayOrder: number;
+  subscriberCount?: number;
   createdAt: string;
   updatedAt: string;
 }
+
+export const getPlanId = (p: Plan | null | undefined): string => {
+  if (!p) return '';
+  return p.id || p._id || '';
+};
 
 export const plansApi = {
   getAll: async (status?: string) => {
@@ -59,12 +66,16 @@ export const plansApi = {
     const res = await api.get<Plan>(`/plans/${id}`);
     return res.data;
   },
-  create: async (data: Omit<Plan, '_id' | 'createdAt' | 'updatedAt'>) => {
+  create: async (data: Omit<Plan, 'id' | '_id' | 'createdAt' | 'updatedAt'>) => {
     const res = await api.post<Plan>('/plans', data);
     return res.data;
   },
   update: async (id: string, data: Partial<Plan>) => {
     const res = await api.patch<Plan>(`/plans/${id}`, data);
+    return res.data;
+  },
+  duplicate: async (id: string) => {
+    const res = await api.post<Plan>(`/plans/${id}/duplicate`);
     return res.data;
   },
   setStatus: async (id: string, status: string) => {

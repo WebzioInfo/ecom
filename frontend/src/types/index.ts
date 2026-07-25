@@ -8,6 +8,8 @@ export interface UserProfile {
   roles: Role[];
   role?: string;
   permissions?: string[];
+  accessibleModules?: string[];
+  isSuperAdmin?: boolean;
   storeId?: string;
   isVerified?: boolean;
 }
@@ -15,6 +17,7 @@ export interface UserProfile {
 export interface LoginPayload {
   email: string;
   password: string;
+  storeSlug?: string;
 }
 
 export interface LoginResponse {

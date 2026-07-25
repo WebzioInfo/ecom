@@ -24,6 +24,19 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers['x-store-id'] = activeStoreId;
   }
 
+  // Automatically derive store slug from subdomain if present (e.g. acme.commercepro.com -> acme)
+  if (config.headers && !config.headers['x-store-id'] && !config.headers['x-store-slug']) {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    // Exclude localhost and common generic subdomains
+    if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'app' && parts[0] !== 'admin') {
+      const derivedSlug = parts[0];
+      if (derivedSlug) {
+        config.headers['x-store-slug'] = derivedSlug;
+      }
+    }
+  }
+
   return config;
 });
 

@@ -27,6 +27,34 @@ enum TicketType {
   GENERAL_SUPPORT
 }
 
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  STORE_OWNER
+  STORE_MANAGER
+  STORE_EMPLOYEE
+}
+
+model User {
+  id                   String    @id @default(uuid())
+  name                 String
+  email                String    @unique
+  password             String?
+  roles                Role[]    @default([USER])
+  isVerified           Boolean   @default(false)
+  verificationToken    String?
+  resetToken           String?
+  resetTokenExpiration DateTime?
+  wishlist             String[] 
+  refreshToken         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  ownedStores          Store[]   @relation("StoreOwner")
+}
+
+
 
 
 model Store {
@@ -37,7 +65,8 @@ model Store {
   customDomain    String?
   status          StoreStatus @default(ACTIVE)
   
-  ownerId         String      // Logical reference to User in tenant schema
+  ownerId         String      
+  owner           User        @relation("StoreOwner", fields: [ownerId], references: [id])
   
   branding        Json        @default("{}")
   settings        Json        @default("{}")
@@ -101,8 +130,11 @@ model Ticket {
   createdById String      // Logical reference to User in tenant schema
   assignedToId String?
   messages   Json         @default("[]") 
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  isDeleted   Boolean      @default(false)
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model UserRegistry {

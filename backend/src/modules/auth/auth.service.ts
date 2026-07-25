@@ -31,13 +31,6 @@ export class AuthService {
   async register(registerDto: RegisterDto) {
     const { name, email, password } = registerDto;
     
-    // Check existing User in Tenant Schema
-    const context = tenantContextStorage.getStore();
-
-    if (!context) {
-      throw new BadRequestException('Store context required (provide x-store-id header)');
-    }
-
     const existingUser = await this.usersService.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
@@ -55,27 +48,12 @@ export class AuthService {
       verificationToken,
     });
 
-    // Create a global UserRegistry mapping
-    await this.prisma.public.userRegistry.upsert({
-      where: {
-        email_storeId: { email, storeId: context.storeId }
-      },
-      update: {
-        schema: context.schemaName,
-      },
-      create: {
-        email,
-        storeId: context.storeId,
-        schema: context.schemaName,
-      }
-    });
-
     const payload: JwtPayload = {
       sub: newUser.id,
       email: newUser.email,
       role: newUser.roles?.[0] || 'user',
-      tenantId: context.schemaName,
-      storeId: context.storeId,
+      tenantId: 'platform', // Default platform tenant context initially
+      storeId: '',
     };
     
     return {
@@ -84,21 +62,38 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto, clientIp: string = 'unknown', userAgent: string = 'unknown') {
+  private getRoleMetadata(role: string) {
+    let permissions: string[] = [];
+    let accessibleModules: string[] = [];
+    const isSuperAdmin = role === 'SUPER_ADMIN';
+
+    if (role === 'SUPER_ADMIN') {
+      permissions = ['*'];
+      accessibleModules = ['dashboard', 'stores', 'plans', 'support', 'system', 'audit-logs', 'developer', 'users', 'settings'];
+    } else if (role === 'STORE_OWNER' || role === 'ADMIN') {
+      permissions = ['store:*'];
+      accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'marketing', 'support', 'staff'];
+    } else if (role === 'STORE_MANAGER') {
+      permissions = ['store:read', 'store:write'];
+      accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'support'];
+    } else if (role === 'STORE_EMPLOYEE') {
+      permissions = ['store:read'];
+      accessibleModules = ['dashboard', 'products', 'orders'];
+    } else {
+      permissions = ['storefront:access'];
+      accessibleModules = ['storefront'];
+    }
+
+    return { permissions, accessibleModules, isSuperAdmin };
+  }
+
+  async login(loginDto: LoginDto, clientIp: string = 'unknown', userAgent: string = 'unknown', requestedStoreId?: string, requestedStoreSlug?: string) {
     const { email, password } = loginDto;
     this.logger.log(`Login request received for email: ${email}`);
 
-    // Check Standard User
-    const context = tenantContextStorage.getStore();
-
-    if (!context) {
-      this.logger.warn(`Login attempt missing store context (x-store-id) for email: ${email}`);
-      throw new BadRequestException('Store context required (provide x-store-id header)');
-    }
-
     let user;
     try {
-      this.logger.log(`Looking up standard User: ${email} in tenant schema`);
+      this.logger.log(`Looking up standard User: ${email} in public schema`);
       user = await this.usersService.findByEmail(email);
     } catch (error: any) {
       this.logger.error(`Database connection error during User lookup: ${error.message}`, error.stack);
@@ -106,22 +101,75 @@ export class AuthService {
     }
 
     if (!user || !user.password) {
-      this.logger.warn(`User not found or password not set: ${email}`);
+      this.logger.warn(`Auth Failed: User not found or password not set for email: ${email}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      this.logger.warn(`Auth Failed: Password mismatch for email: ${email}`);
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const role = user.roles?.[0] || 'USER';
+
+    // Resolve tenant based on UserRegistry and requested store
+    let storeId = '';
+    let tenantId = 'platform';
+    
+    if (role === 'SUPER_ADMIN' && !requestedStoreId && !requestedStoreSlug) {
+      // Super admin can login to the platform without a store context
+      tenantId = 'platform';
+      storeId = '';
+    } else {
+      // Find all stores this user belongs to
+      const registries = await this.prisma.public.userRegistry.findMany({
+        where: { email }
+      });
+      
+      if (registries.length === 0 && role !== 'SUPER_ADMIN') {
+        this.logger.warn(`Auth Failed: User ${email} has no store assignments.`);
+        throw new UnauthorizedException('User is not assigned to any store.');
+      }
+      
+      let targetRegistry;
+      
+      if (requestedStoreId || requestedStoreSlug) {
+        // Strict tenant resolution based on requested store
+        let store;
+        if (requestedStoreId) {
+          store = await this.prisma.public.store.findUnique({ where: { id: requestedStoreId } });
+        } else if (requestedStoreSlug) {
+          store = await this.prisma.public.store.findUnique({ where: { slug: requestedStoreSlug } });
+        }
+        
+        if (!store) {
+           throw new UnauthorizedException('Invalid store context requested.');
+        }
+        
+        targetRegistry = registries.find(r => r.storeId === store.id);
+        
+        if (!targetRegistry && role !== 'SUPER_ADMIN') {
+          throw new UnauthorizedException('User is not registered in this store.');
+        }
+      } else {
+        // If no store is requested, but user has stores, default to the first one.
+        targetRegistry = registries[0];
+      }
+      
+      if (targetRegistry) {
+        storeId = targetRegistry.storeId;
+        tenantId = targetRegistry.schema;
+      }
     }
 
     const userId = user.id;
     const payload: JwtPayload = { 
       sub: userId, 
       email: user.email, 
-      role: user.roles?.[0] || 'user',
-      tenantId: context.schemaName,
-      storeId: context.storeId
+      role,
+      tenantId,
+      storeId
     };
 
     const accessToken = this.jwtService.sign(payload, {
@@ -133,11 +181,24 @@ export class AuthService {
       expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES', '30d'),
     } as JwtSignOptions);
 
+    const meta = this.getRoleMetadata(role);
+
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
       token_type: 'Bearer',
-      user: { id: userId, name: user.name, email: user.email, role: payload.role },
+      user: {
+        id: userId,
+        name: user.name,
+        email: user.email,
+        role,
+        roles: user.roles,
+        permissions: meta.permissions,
+        accessibleModules: meta.accessibleModules,
+        isSuperAdmin: meta.isSuperAdmin,
+        storeId,
+        tenantId,
+      },
     };
   }
 
@@ -178,11 +239,24 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('User not found');
+    const role = user.roles?.[0] || 'USER';
+    const meta = this.getRoleMetadata(role);
+
+    const registry = await this.prisma.public.userRegistry.findFirst({
+      where: { email: user.email },
+    });
+
     return {
       id: user.id,
       name: user.name,
       email: user.email,
+      role,
       roles: user.roles,
+      permissions: meta.permissions,
+      accessibleModules: meta.accessibleModules,
+      isSuperAdmin: meta.isSuperAdmin,
+      storeId: registry?.storeId || '',
+      tenantId: registry?.schema || 'platform',
     };
   }
 

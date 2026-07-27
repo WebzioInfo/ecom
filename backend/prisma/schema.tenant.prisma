@@ -53,16 +53,21 @@ model Cart {
 }
 
 model Category {
-  id        String    @id @default(uuid())
-  name      String    @unique
-  slug      String    @unique
-  parentId  String?
-  parent    Category? @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: Cascade)
-  children  Category[] @relation("CategoryToCategory")
-  image     String?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  banner      String?
+  parentId    String?
+  parent      Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Category[] @relation("CategoryToCategory")
+  image       String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  isDeleted   Boolean    @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Customer {
@@ -99,6 +104,17 @@ model Warehouse {
   @@unique([storeId, code])
 }
 
+model StockMovement {
+  id          String   @id @default(uuid())
+  productId   String
+  warehouseId String?
+  type        String   // IN, OUT, ADJUSTMENT
+  quantity    Int
+  reason      String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+}
+
 model Coupon {
   id             String       @id @default(uuid())
   storeId        String       // Keep storeId column (logical reference)
@@ -129,28 +145,57 @@ model PlatformNotification {
 }
 
 model Order {
-  id          String      @id @default(uuid())
-  userId      String   // Logical reference to User in public schema
-  items       Json
-  totalAmount Float
-  status      OrderStatus @default(PENDING)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id              String      @id @default(uuid())
+  orderNumber     String?     @unique
+  userId          String      // Logical reference to User in public schema
+  customerInfo    Json?       // Quick snapshot of customer { name, email, phone }
+  items           Json
+  totalAmount     Float
+  taxAmount       Float       @default(0)
+  discountAmount  Float       @default(0)
+  status          OrderStatus @default(PENDING)
+  paymentStatus   String      @default("UNPAID")
+  deliveryStatus  String      @default("UNFULFILLED")
+  courier         String?
+  trackingNumber  String?
+  shippingAddress Json?
+  billingAddress  Json?
+  timeline        Json        @default("[]")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  price       Float
-  stock       Int
-  category    String
-  brand       String
-  images      String[]
-  rating      Float    @default(0)
-  discount    Float    @default(0)
-  featured    Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String    @id @default(uuid())
+  title            String
+  sku              String?
+  barcode          String?
+  shortDescription String?
+  description      String
+  price            Float
+  offerPrice       Float?
+  costPrice        Float?
+  stock            Int
+  minStock         Int       @default(5)
+  weight           Float?
+  dimensions       Json?
+  gst              Float?
+  tax              Float?
+  category         String
+  brand            String
+  images           String[]
+  rating           Float     @default(0)
+  discount         Float     @default(0)
+  status           String    @default("PUBLISHED") // DRAFT, PUBLISHED, ARCHIVED
+  featured         Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  isDeleted        Boolean   @default(false)
+  deletedAt        DateTime?
+  seoTitle         String?
+  seoDescription   String?
+  tags             String[]  @default([])
+  attributes       Json?     @default("[]")
+  variants         Json?     @default("[]")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

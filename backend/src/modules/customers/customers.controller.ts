@@ -24,10 +24,23 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
-  @Roles('super_admin', 'admin', 'company_admin', 'manager', 'staff')
   @ApiOperation({ summary: 'Create a new customer profile' })
   create(@Body() dto: CreateCustomerDto) {
     return this.customersService.create(dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'List all customers for current tenant' })
+  findAll(
+    @Query('search') search?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.customersService.findByStore('tenant-context', {
+      search,
+      page: +page,
+      limit: +limit,
+    });
   }
 
   @Get('store/:storeId')

@@ -46,9 +46,14 @@ CREATE TABLE "Category" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
+    "description" TEXT,
     "parentId" TEXT,
     "image" TEXT,
+    "banner" TEXT,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+    "deletedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -128,9 +133,20 @@ CREATE TABLE "PlatformNotification" (
 CREATE TABLE "Order" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
+    "orderNumber" TEXT,
+    "customerInfo" JSONB,
     "items" JSONB NOT NULL,
     "totalAmount" DOUBLE PRECISION NOT NULL,
+    "taxAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "discountAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentStatus" TEXT NOT NULL DEFAULT 'PENDING',
+    "deliveryStatus" TEXT NOT NULL DEFAULT 'PENDING',
+    "courier" TEXT,
+    "trackingNumber" TEXT,
+    "shippingAddress" JSONB,
+    "billingAddress" JSONB,
+    "timeline" JSONB NOT NULL DEFAULT '[]',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -141,20 +157,52 @@ CREATE TABLE "Order" (
 CREATE TABLE "Product" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
+    "sku" TEXT,
+    "barcode" TEXT,
     "description" TEXT NOT NULL,
+    "shortDescription" TEXT,
     "price" DOUBLE PRECISION NOT NULL,
-    "stock" INTEGER NOT NULL,
+    "costPrice" DOUBLE PRECISION,
+    "offerPrice" DOUBLE PRECISION,
+    "stock" INTEGER NOT NULL DEFAULT 0,
+    "minStock" INTEGER NOT NULL DEFAULT 5,
+    "weight" DOUBLE PRECISION,
+    "dimensions" JSONB,
     "category" TEXT NOT NULL,
     "brand" TEXT NOT NULL,
-    "images" TEXT[],
+    "gst" DOUBLE PRECISION,
+    "tax" DOUBLE PRECISION,
+    "images" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "rating" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "discount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "seoTitle" TEXT,
+    "seoDescription" TEXT,
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "attributes" JSONB,
+    "variants" JSONB,
+    "status" TEXT NOT NULL DEFAULT 'PUBLISHED',
     "featured" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+    "deletedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "StockMovement" (
+    "id" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "warehouseId" TEXT,
+    "type" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "reason" TEXT,
+    "createdBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "StockMovement_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -180,3 +228,6 @@ CREATE UNIQUE INDEX "Coupon_storeId_code_key" ON "Coupon"("storeId", "code");
 
 -- AddForeignKey
 ALTER TABLE "Category" ADD CONSTRAINT "Category_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;

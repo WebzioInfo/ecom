@@ -3,19 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { LoginPayload } from '../types';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
   const { loginMutation } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [storeSlug, setStoreSlug] = useState('');
-
-  // Check if we already have a subdomain determining the store slug
-  const hostname = window.location.hostname;
-  const parts = hostname.split('.');
-  const hasSubdomain = parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'app' && parts[0] !== 'admin';
-
+  const [showPassword, setShowPassword] = useState(false);
   const onSuccess = (data: any) => {
     toast.success('Welcome back!');
     const userRole = (data.user?.role || data.user?.roles?.[0] || '').toUpperCase();
@@ -28,7 +23,7 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate({ email, password, storeSlug: storeSlug || undefined }, {
+    loginMutation.mutate({ email, password }, {
       onSuccess,
       onError: (err: any) => {
         const msg = err.response?.data?.message;
@@ -56,21 +51,7 @@ export default function Login() {
             </div>
           )}
           <div className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            {!hasSubdomain && (
-              <div>
-                <label htmlFor="storeSlug" className="block text-sm font-medium text-slate-700">
-                  Workspace Slug <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
-                <input
-                  id="storeSlug"
-                  type="text"
-                  value={storeSlug}
-                  onChange={(event) => setStoreSlug(event.target.value)}
-                  placeholder="e.g. acme-corp"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                />
-              </div>
-            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700">
                 Email address
@@ -88,14 +69,23 @@ export default function Login() {
               <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
+              <div className="relative mt-2">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-12 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           </div>
           <button

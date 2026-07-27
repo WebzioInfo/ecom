@@ -49,7 +49,7 @@ export default function AdminProductsPage() {
           <p className="text-xs text-slate-400">Manage SKUs, Multi-Variants, Inventory & Media for <span className="text-indigo-400">{activeStore?.name}</span></p>
         </div>
         <button
-          onClick={() => navigate('/admin/products/new')}
+          onClick={() => navigate('/store/products/new')}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 transition"
         >
           <Plus className="w-4 h-4" />
@@ -93,50 +93,53 @@ export default function AdminProductsPage() {
                 </td>
               </tr>
             ) : (
-              products.map((p) => (
-                <tr key={p._id} className="hover:bg-slate-800/40 transition">
-                  <td className="p-3.5 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      {p.images?.[0] ? (
-                        <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <Package className="w-5 h-5 text-slate-600" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold text-white text-xs">{p.title}</p>
-                      <p className="text-[10px] text-slate-500 truncate max-w-xs">{p.description}</p>
-                    </div>
-                  </td>
-                  <td className="p-3.5 font-mono text-[11px] text-indigo-400">{p.sku || 'N/A'}</td>
-                  <td className="p-3.5 text-slate-400">{p.category}</td>
-                  <td className="p-3.5 font-bold text-emerald-400">${p.price}</td>
-                  <td className="p-3.5">
-                    <span className={`font-semibold ${p.stock < 10 ? 'text-rose-400' : 'text-slate-300'}`}>
-                      {p.stock} units
-                    </span>
-                  </td>
-                  <td className="p-3.5">
-                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${p.isActive ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
-                      {p.isActive ? 'Active' : 'Draft'}
-                    </span>
-                  </td>
-                  <td className="p-3.5 text-right space-x-2">
-                    <button
-                      onClick={() => navigate(`/admin/products/${p._id}/edit`)}
-                      className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p._id)}
-                      className="p-1.5 rounded hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))
+              products.map((p) => {
+                const prodId = (p as any).id || (p as any)._id;
+                return (
+                  <tr key={prodId} className="hover:bg-slate-800/40 transition">
+                    <td className="p-3.5 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        {p.images?.[0] ? (
+                          <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-5 h-5 text-slate-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-white text-xs">{p.title}</p>
+                        <p className="text-[10px] text-slate-500 truncate max-w-xs">{p.description}</p>
+                      </div>
+                    </td>
+                    <td className="p-3.5 font-mono text-[11px] text-indigo-400">{p.sku || 'N/A'}</td>
+                    <td className="p-3.5 text-slate-400">{p.category}</td>
+                    <td className="p-3.5 font-bold text-emerald-400">${p.price}</td>
+                    <td className="p-3.5">
+                      <span className={`font-semibold ${p.stock < 10 ? 'text-rose-400' : 'text-slate-300'}`}>
+                        {p.stock} units
+                      </span>
+                    </td>
+                    <td className="p-3.5">
+                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${p.isActive ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                        {p.isActive ? 'Active' : 'Draft'}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-right space-x-2">
+                      <button
+                        onClick={() => navigate(`/store/products/${prodId}/edit`)}
+                        className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(prodId)}
+                        className="p-1.5 rounded hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

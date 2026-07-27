@@ -62,4 +62,33 @@ export class UsersController {
   ) {
     return this.usersService.removeFromWishlist(req.user.userId, productId);
   }
+
+  @Get('store')
+  async getStoreStaff(@Request() req: any) {
+    const storeId = req.headers['x-store-id'] || 'default-store';
+    return this.usersService.getStoreStaff(storeId);
+  }
+
+  @Post('store')
+  async addStoreStaff(@Request() req: any, @Body() body: any) {
+    const storeId = req.headers['x-store-id'] || 'default-store';
+    const schema = req.headers['x-store-slug'] ? `tenant_${req.headers['x-store-slug']}` : `tenant_${storeId}`;
+    return this.usersService.addStoreStaff(storeId, schema, body);
+  }
+
+  @Patch('store/:id')
+  async updateStoreStaff(@Param('id') id: string, @Body() body: any) {
+    return this.usersService.updateStoreStaff(id, body);
+  }
+
+  @Post('store/:id/reset-password')
+  async resetStaffPassword(@Param('id') id: string, @Body() body: any) {
+    return this.usersService.resetStaffPassword(id, body.password);
+  }
+
+  @Delete('store/:id')
+  async deleteStoreStaff(@Request() req: any, @Param('id') id: string) {
+    const storeId = req.headers['x-store-id'] || 'default-store';
+    return this.usersService.deleteStoreStaff(storeId, id);
+  }
 }

@@ -39,13 +39,16 @@ export class AuthController {
       req.socket?.remoteAddress ||
       'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    const storeSlug = req.headers['x-store-slug'];
-    const storeId = req.headers['x-store-id'];
+    let storeSlug = req.headers['x-store-slug'] as string | undefined;
+    let storeId = req.headers['x-store-id'] as string | undefined;
+
+    if (storeSlug === 'none' || storeSlug === 'undefined') storeSlug = undefined;
+    if (storeId === 'none' || storeId === 'undefined') storeId = undefined;
 
     this.logger.log(`Login attempt for ${loginDto.email} from IP: ${clientIp}. Provided headers - x-store-slug: ${storeSlug || 'none'}, x-store-id: ${storeId || 'none'}`);
 
     try {
-      const result = await this.authService.login(loginDto, clientIp, userAgent, storeId as string, storeSlug as string);
+      const result = await this.authService.login(loginDto, clientIp, userAgent, storeId, storeSlug);
       this.logger.log(`Login successful for ${loginDto.email}`);
       return result;
     } catch (error: any) {

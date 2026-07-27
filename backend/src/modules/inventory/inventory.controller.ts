@@ -28,9 +28,20 @@ export class InventoryController {
   }
 
   @Post('stock/adjust')
-  @Roles('super_admin', 'admin', 'company_admin', 'manager', 'staff')
   @ApiOperation({ summary: 'Adjust stock levels for a product in a warehouse' })
-  adjustStock(@Body() dto: AdjustStockDto) {
+  adjustStock(@Body() dto: any) {
     return this.inventoryService.adjustStock(dto);
+  }
+
+  @Get('stock')
+  @ApiOperation({ summary: 'Get overall stock summary and low stock warnings' })
+  getStockSummary() {
+    return this.inventoryService.getStockSummary();
+  }
+
+  @Get('movements')
+  @ApiOperation({ summary: 'Get stock movement logs' })
+  getMovements(@Param('productId') productId?: string) {
+    return this.inventoryService.getMovements(productId);
   }
 }

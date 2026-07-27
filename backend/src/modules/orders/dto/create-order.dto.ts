@@ -1,15 +1,17 @@
 import {
   IsArray,
-  IsMongoId,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
+  IsString,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class OrderItemDto {
-  @IsMongoId()
+  @IsString()
+  @IsNotEmpty()
   productId: string;
 
   @IsNumber()
@@ -27,18 +29,27 @@ export class CreateOrderDto {
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
 
-  @IsNotEmpty()
-  customerName: string;
+  @IsString()
+  @IsOptional()
+  customerName?: string;
 
-  @IsNotEmpty()
-  shippingAddress: string;
+  @IsString()
+  @IsOptional()
+  customerEmail?: string;
 
-  @IsNotEmpty()
-  phone: string;
+  @IsString()
+  @IsOptional()
+  shippingAddress?: string;
 
-  @IsNotEmpty()
-  paymentMethod: string;
+  @IsString()
+  @IsOptional()
+  phone?: string;
 
-  @IsNotEmpty()
-  returnUrl: string;
+  @IsString()
+  @IsOptional()
+  paymentMethod?: string;
+
+  @IsString()
+  @IsOptional()
+  returnUrl?: string;
 }

@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { Request } from 'express';
 
 @Controller('upload')

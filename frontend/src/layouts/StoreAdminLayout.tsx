@@ -3,10 +3,13 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
   ShoppingBag,
   Warehouse,
   Users,
   Tag,
+  BarChart3,
+  Settings,
   UserCog,
   LogOut,
   MessageSquare,
@@ -23,7 +26,8 @@ export function StoreAdminLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    if (user?.role === 'SUPER_ADMIN' || user?.role === 'STORE_OWNER' || user?.role === 'ADMIN') {
+    const role = (user?.role || user?.roles?.[0] || '').toUpperCase();
+    if (role === 'SUPER_ADMIN') {
       storesApi.getAll({ limit: 10 }).then((res) => {
         setStores(res.data as any);
         if (!activeStore && res.data.length > 0) {
@@ -41,16 +45,20 @@ export function StoreAdminLayout() {
   const rawNavItems = [
     { label: 'Overview', path: '/store/dashboard', module: 'dashboard', icon: LayoutDashboard },
     { label: 'Products Catalog', path: '/store/products', module: 'products', icon: Package },
+    { label: 'Categories Tree', path: '/store/categories', module: 'categories', icon: FolderTree },
     { label: 'Orders (OMS)', path: '/store/orders', module: 'orders', icon: ShoppingBag },
     { label: 'Inventory', path: '/store/inventory', module: 'inventory', icon: Warehouse },
     { label: 'Customers CRM', path: '/store/customers', module: 'customers', icon: Users },
     { label: 'Marketing & Coupons', path: '/store/marketing', module: 'marketing', icon: Tag },
+    { label: 'Reports & Analytics', path: '/store/reports', module: 'reports', icon: BarChart3 },
+    { label: 'Store Settings', path: '/store/settings', module: 'settings', icon: Settings },
     { label: 'Support', path: '/store/support', module: 'support', icon: MessageSquare },
     { label: 'Staff & Roles', path: '/store/staff', module: 'staff', icon: UserCog },
   ];
 
   // Dynamic Filtering based on role & user accessibleModules
-  const accessible = user?.accessibleModules || ['dashboard', 'products', 'orders'];
+  const defaultModules = ['dashboard', 'products', 'categories', 'orders', 'inventory', 'customers', 'marketing', 'reports', 'settings', 'support', 'staff'];
+  const accessible = user?.accessibleModules || defaultModules;
   const navItems = rawNavItems.filter((item) => accessible.includes(item.module));
 
   return (

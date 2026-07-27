@@ -40,7 +40,7 @@ export default function AdminOrderDetailsPage() {
       await ordersApi.updateStatus(id, {
         status,
         trackingNumber,
-        carrier,
+        courier: carrier,
       });
       toast.success('Order status updated');
       loadOrder();
@@ -57,7 +57,7 @@ export default function AdminOrderDetailsPage() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/admin/orders')} className="p-2 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+          <button onClick={() => navigate('/store/orders')} className="p-2 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>

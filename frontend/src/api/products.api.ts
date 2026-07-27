@@ -30,4 +30,44 @@ export const productsApi = {
     const { data } = await api.delete(`/products/${id}`);
     return data;
   },
+  softDelete: async (id: string) => {
+    const { data } = await api.delete(`/products/${id}`);
+    return data;
+  },
+  restore: async (id: string) => {
+    const { data } = await api.post(`/products/${id}/restore`);
+    return data;
+  },
+  bulkUpdate: async (ids: string[], updateData: any) => {
+    const { data } = await api.patch('/products/bulk-update', { ids, data: updateData });
+    return data;
+  },
+  bulkDelete: async (ids: string[]) => {
+    const { data } = await api.post('/products/bulk-delete', { ids });
+    return data;
+  },
+  getCategories: async () => {
+    const { data } = await api.get<{ flat: any[]; tree: any[] }>('/categories');
+    return data;
+  },
+  getCategoriesDropdown: async () => {
+    const { data } = await api.get<{ id: string; name: string; slug: string; parentId: string | null }[]>('/categories/dropdown');
+    return data;
+  },
+  createCategory: async (payload: any) => {
+    const { data } = await api.post('/categories', payload);
+    return data;
+  },
+  updateCategory: async (id: string, payload: any) => {
+    const { data } = await api.patch(`/categories/${id}`, payload);
+    return data;
+  },
+  deleteCategory: async (id: string) => {
+    const { data } = await api.delete(`/categories/${id}`);
+    return data;
+  },
+  restoreCategory: async (id: string) => {
+    const { data } = await api.post(`/categories/${id}/restore`);
+    return data;
+  },
 };

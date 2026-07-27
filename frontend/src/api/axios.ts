@@ -20,7 +20,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  if (activeStoreId && config.headers && !config.headers['x-store-id']) {
+  if (activeStoreId && activeStoreId !== 'undefined' && activeStoreId !== 'none' && config.headers && !config.headers['x-store-id']) {
     config.headers['x-store-id'] = activeStoreId;
   }
 

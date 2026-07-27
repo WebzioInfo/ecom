@@ -117,8 +117,8 @@ export class AuthService {
     let storeId = '';
     let tenantId = 'platform';
     
-    if (role === 'SUPER_ADMIN' && !requestedStoreId && !requestedStoreSlug) {
-      // Super admin can login to the platform without a store context
+    if (role === 'SUPER_ADMIN') {
+      // Super admin can login to the platform without a store context, ignoring any provided headers
       tenantId = 'platform';
       storeId = '';
     } else {
@@ -126,11 +126,6 @@ export class AuthService {
       const registries = await this.prisma.public.userRegistry.findMany({
         where: { email }
       });
-      
-      if (registries.length === 0 && role !== 'SUPER_ADMIN') {
-        this.logger.warn(`Auth Failed: User ${email} has no store assignments.`);
-        throw new UnauthorizedException('User is not assigned to any store.');
-      }
       
       let targetRegistry;
       
@@ -149,7 +144,7 @@ export class AuthService {
         
         targetRegistry = registries.find(r => r.storeId === store.id);
         
-        if (!targetRegistry && role !== 'SUPER_ADMIN') {
+        if (!targetRegistry) {
           throw new UnauthorizedException('User is not registered in this store.');
         }
       } else {
@@ -160,6 +155,14 @@ export class AuthService {
       if (targetRegistry) {
         storeId = targetRegistry.storeId;
         tenantId = targetRegistry.schema;
+      } else if (!storeId && !tenantId) {
+        // If they have no registry and didn't request a store, let them login to platform
+        // (e.g. newly registered user who hasn't created a store yet)
+        if (requestedStoreId || requestedStoreSlug) {
+           throw new UnauthorizedException('User is not assigned to any store.');
+        }
+        tenantId = 'platform';
+        storeId = '';
       }
     }
 

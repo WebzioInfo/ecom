@@ -23,8 +23,18 @@ export const inventoryApi = {
     return res.data;
   },
 
-  adjustStock: async (data: { storeId: string; warehouseId: string; productId: string; quantityDelta: number; reason?: string }) => {
+  adjustStock: async (data: { storeId?: string; warehouseId?: string; productId: string; quantityDelta: number; reason?: string }) => {
     const res = await api.post('/inventory/stock/adjust', data);
+    return res.data;
+  },
+
+  getStockSummary: async () => {
+    const res = await api.get<any>('/inventory/stock');
+    return res.data;
+  },
+
+  getMovements: async (productId?: string) => {
+    const res = await api.get<any[]>('/inventory/movements', { params: { productId } });
     return res.data;
   },
 };

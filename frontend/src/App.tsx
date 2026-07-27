@@ -23,12 +23,14 @@ const PlatformSettings = lazy(() => import('./pages/PlatformSettings'));
 // Store Admin & Staff Pages
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminProductsPage = lazy(() => import('./pages/AdminProductsPage'));
+const AdminCategoriesPage = lazy(() => import('./pages/AdminCategoriesPage'));
 const AdminProductCreatePage = lazy(() => import('./pages/AdminProductCreatePage'));
 const AdminOrdersPage = lazy(() => import('./pages/AdminOrdersPage'));
 const AdminOrderDetailsPage = lazy(() => import('./pages/AdminOrderDetailsPage'));
 const InventoryPage = lazy(() => import('./pages/InventoryPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const MarketingPage = lazy(() => import('./pages/MarketingPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
 const StaffPage = lazy(() => import('./pages/StaffPage'));
 
@@ -112,11 +114,14 @@ export default function App() {
           <Route path="products" element={<AdminProductsPage />} />
           <Route path="products/new" element={<AdminProductCreatePage />} />
           <Route path="products/:id/edit" element={<AdminProductCreatePage />} />
+          <Route path="categories" element={<AdminCategoriesPage />} />
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="orders/:id" element={<AdminOrderDetailsPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="marketing" element={<MarketingPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="settings" element={<PlatformSettings />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="staff" element={<StaffPage />} />
         </Route>

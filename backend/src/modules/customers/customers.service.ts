@@ -14,9 +14,11 @@ export class CustomersService {
     storeId: string,
     query: { search?: string; page?: number; limit?: number },
   ) {
-    const { search, page = 1, limit = 20 } = query;
-    
-    const where: Prisma.CustomerWhereInput = { storeId };
+    const { search, page = 1, limit = 20 } = query || {};
+    const where: any = {};
+    if (storeId && storeId !== 'tenant-context') {
+      where.storeId = storeId;
+    }
     
     if (search) {
       where.OR = [

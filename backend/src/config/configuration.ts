@@ -1,6 +1,6 @@
 // src/config/configuration.ts
 export default () => ({
-  port: parseInt(process.env.PORT ?? '4000', 10),
+  port: parseInt(process.env.PORT ?? '3000', 10),
   mongodbUri: process.env.MONGODB_URI,
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET,

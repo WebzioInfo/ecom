@@ -58,6 +58,24 @@ export class ProductsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Patch('bulk-update')
+  async bulkUpdate(@Body() body: { ids: string[]; data: any }) {
+    return this.productsService.bulkUpdate(body.ids, body.data);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('bulk-delete')
+  async bulkDelete(@Body() body: { ids: string[] }) {
+    return this.productsService.bulkDelete(body.ids);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/restore')
+  async restore(@Param('id') id: string) {
+    return this.productsService.restore(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.productsService.remove(id);

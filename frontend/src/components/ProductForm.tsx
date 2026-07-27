@@ -83,7 +83,7 @@ export default function ProductForm({ product }: ProductFormProps) {
         await productsApi.create(payload);
         toast.success('Product created');
       }
-      navigate('/admin/products');
+      navigate('/store/products');
     } catch (err) {
       console.error(err);
       toast.error('Failed to save product');

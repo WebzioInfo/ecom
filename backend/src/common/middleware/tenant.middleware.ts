@@ -14,6 +14,11 @@ export class TenantMiddleware implements NestMiddleware {
     let storeId: string | null = null;
     let schemaName: string | null = null;
 
+    // Bypass tenant resolution for Super Admin login endpoint
+    if (req.path && req.path.includes('/auth/super-admin-login')) {
+      return next();
+    }
+
     const storeIdHeader = req.headers['x-store-id'] as string | undefined;
     const storeSlugHeader = req.headers['x-store-slug'] as string | undefined;
     const apiKeyHeader = req.headers['x-api-key'] as string | undefined;

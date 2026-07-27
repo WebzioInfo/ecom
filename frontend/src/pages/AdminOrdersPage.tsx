@@ -15,11 +15,10 @@ export default function AdminOrdersPage() {
   const navigate = useNavigate();
 
   const loadOrders = async () => {
-    if (!activeStore?._id) return;
     setLoading(true);
     try {
-      const res = await ordersApi.getByStore(activeStore._id, { status, search, limit: 50 });
-      setOrders(res.data);
+      const res = await ordersApi.getAll({ status, search, limit: 50 });
+      setOrders(res.data || []);
     } catch (err) {
       toast.error('Failed to load orders');
     } finally {
@@ -127,7 +126,7 @@ export default function AdminOrdersPage() {
                   <td className="p-3.5 text-slate-500 text-[11px]">{new Date(ord.createdAt).toLocaleDateString()}</td>
                   <td className="p-3.5 text-right">
                     <button
-                      onClick={() => navigate(`/admin/orders/${ord._id}`)}
+                      onClick={() => navigate(`/store/orders/${(ord as any).id || (ord as any)._id}`)}
                       className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-indigo-400 transition"
                       title="View Timeline & Process Order"
                     >

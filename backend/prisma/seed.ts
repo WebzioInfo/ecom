@@ -10,7 +10,7 @@ async function main() {
   console.log('Starting multi-tenant production seed...');
 
   const passwordHash = await bcrypt.hash('WebzioAdmin2026!', 10);
-  const userPasswordHash = await bcrypt.hash('Password123!', 10);
+  const userPasswordHash = await bcrypt.hash('password@123', 10);
 
   // Drop old corrupt tenant schemas
   await prisma.public.$executeRawUnsafe('DROP SCHEMA IF EXISTS tenant_electronics_hub CASCADE;');

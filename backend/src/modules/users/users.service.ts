@@ -81,4 +81,97 @@ export class UsersService {
     
     return updated.wishlist;
   }
+
+  async getStoreStaff(storeId: string) {
+    const registries = await this.prisma.public.userRegistry.findMany({
+      where: { storeId },
+    });
+    const emails = registries.map((r: any) => r.email);
+    const users = await this.prisma.public.user.findMany({
+      where: { email: { in: emails } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        roles: true,
+        isVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return users.map((u: any) => ({
+      ...u,
+      role: u.roles?.[0] || 'STORE_EMPLOYEE',
+      status: u.isVerified ? 'ACTIVE' : 'ACTIVE',
+    }));
+  }
+
+  async addStoreStaff(storeId: string, schema: string, dto: any) {
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(dto.password || 'Password123!', 10);
+    const roles = Array.isArray(dto.roles) ? dto.roles : [dto.role || 'STORE_EMPLOYEE'];
+
+    let user = await this.prisma.public.user.findUnique({ where: { email: dto.email } });
+    if (!user) {
+      user = await this.prisma.public.user.create({
+        data: {
+          name: dto.name,
+          email: dto.email,
+          password: hashedPassword,
+          roles: roles as any,
+          isVerified: true,
+        },
+      });
+    }
+
+    try {
+      await this.prisma.public.userRegistry.create({
+        data: {
+          email: dto.email,
+          storeId,
+          schema: schema || `tenant_${storeId}`,
+        },
+      });
+    } catch {
+      // User registry entry already exists
+    }
+
+    return user;
+  }
+
+  async updateStoreStaff(userId: string, dto: any) {
+    const updateData: any = {};
+    if (dto.name) updateData.name = dto.name;
+    if (dto.role) updateData.roles = [dto.role];
+    if (dto.roles) updateData.roles = dto.roles;
+
+    return this.prisma.public.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+  }
+
+  async resetStaffPassword(userId: string, newPassword?: string) {
+    const bcrypt = await import('bcrypt');
+    const pass = newPassword || `Pass!${Math.random().toString(36).slice(-8)}`;
+    const hashedPassword = await bcrypt.hash(pass, 10);
+
+    await this.prisma.public.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { success: true, temporaryPassword: pass };
+  }
+
+  async deleteStoreStaff(storeId: string, userId: string) {
+    const user = await this.prisma.public.user.findUnique({ where: { id: userId } });
+    if (user) {
+      await this.prisma.public.userRegistry.deleteMany({
+        where: { storeId, email: user.email },
+      });
+    }
+    return { success: true };
+  }
 }

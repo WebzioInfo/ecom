@@ -3,7 +3,9 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -32,12 +34,32 @@ export class OrdersController {
   }
 
   @Get()
-  async getOrders(@Request() req: AuthRequest) {
-    return this.ordersService.getOrders(req.user.userId, req.user.roles);
+  async getOrders(@Request() req: AuthRequest, @Query() query: any) {
+    return this.ordersService.getOrders(req.user.userId, req.user.roles || [], query);
   }
 
   @Get(':id')
   async getOrder(@Request() req: AuthRequest, @Param('id') id: string) {
-    return this.ordersService.getOrderById(req.user.userId, id, req.user.roles);
+    return this.ordersService.getOrderById(req.user.userId, id, req.user.roles || []);
+  }
+
+  @Patch(':id/status')
+  async updateStatus(@Param('id') id: string, @Body() body: any) {
+    return this.ordersService.updateOrderStatus(id, body);
+  }
+
+  @Post(':id/fulfill')
+  async fulfill(@Param('id') id: string, @Body() body: any) {
+    return this.ordersService.fulfillOrder(id, body);
+  }
+
+  @Post(':id/refund')
+  async refund(@Param('id') id: string, @Body() body: any) {
+    return this.ordersService.refundOrder(id, body);
+  }
+
+  @Get(':id/invoice')
+  async getInvoice(@Param('id') id: string) {
+    return this.ordersService.generateInvoiceData(id);
   }
 }

@@ -5,7 +5,7 @@ WORKDIR /app
 # Install dependencies
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copy source
 COPY . .
@@ -22,7 +22,7 @@ ENV NODE_ENV=production
 
 # Copy only production dependencies and built files
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --legacy-peer-deps
 COPY --from=builder /app/dist ./dist
 
 # Security best practice: avoid running as root

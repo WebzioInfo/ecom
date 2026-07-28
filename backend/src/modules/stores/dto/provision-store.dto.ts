@@ -7,6 +7,7 @@ import {
   IsEnum,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { StoreStatus } from '@prisma/public-client';
 
 export class ProvisionStoreDto {
@@ -119,7 +120,8 @@ export class ProvisionStoreDto {
   @IsOptional()
   subscriptionType?: string;
 
-  @IsNumber()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Trial days must be a number.' })
   @IsOptional()
   trialDays?: number;
 

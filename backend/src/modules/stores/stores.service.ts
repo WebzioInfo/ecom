@@ -1,7 +1,11 @@
 import {
   Injectable,
+  HttpException,
   NotFoundException,
   ConflictException,
+  BadRequestException,
+  InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma, Store, StoreStatus } from '@prisma/public-client';
@@ -13,6 +17,8 @@ import * as path from 'path';
 
 @Injectable()
 export class StoresService {
+  private readonly logger = new Logger(StoresService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async create(createStoreDto: CreateStoreDto): Promise<Store> {
@@ -34,55 +40,114 @@ export class StoresService {
   }
 
   async provisionStore(dto: ProvisionStoreDto) {
-    const existingSlug = await this.prisma.client.store.findUnique({
-      where: { slug: dto.slug },
-    });
-    if (existingSlug) {
-      throw new ConflictException({ success: false, field: 'slug', message: `Store slug already exists.` });
-    }
-
-    const existingName = await this.prisma.client.store.findFirst({
-      where: { name: { equals: dto.name, mode: 'insensitive' } },
-    });
-    if (existingName) {
-      throw new ConflictException({ success: false, field: 'name', message: `Store name already exists.` });
-    }
-
-    // Check Company Name (businessName) using raw query since it's inside JSON settings
-    if (dto.businessName) {
-      const existingBusiness = await this.prisma.client.$queryRaw`
-        SELECT id FROM "Store" 
-        WHERE settings->>'businessName' ILIKE ${dto.businessName}
-        LIMIT 1
-      `;
-      if (Array.isArray(existingBusiness) && existingBusiness.length > 0) {
-        throw new ConflictException({ success: false, field: 'businessName', message: `Company name already exists.` });
+    this.logger.log(`Provisioning Transaction Started. Incoming payload: ${JSON.stringify(dto)}`);
+    this.logger.log(`Validation: Checking incoming fields and duplicate records...`);
+    try {
+      if (!dto.name) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Store name is required.',
+          errors: [{ field: 'name', message: 'Store name is required.' }],
+        });
       }
-    }
+      if (!dto.slug) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Store slug is required.',
+          errors: [{ field: 'slug', message: 'Store slug is required.' }],
+        });
+      }
+      if (!dto.ownerName) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Owner name is required.',
+          errors: [{ field: 'ownerName', message: 'Owner name is required.' }],
+        });
+      }
+      if (!dto.adminEmail) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Admin email is required.',
+          errors: [{ field: 'adminEmail', message: 'Admin email is required.' }],
+        });
+      }
+      if (!dto.adminPassword) {
+        throw new BadRequestException({
+          success: false,
+          message: 'Admin password is required.',
+          errors: [{ field: 'adminPassword', message: 'Admin password is required.' }],
+        });
+      }
 
-    const existingRegistry = await this.prisma.client.userRegistry.findFirst({
-      where: { email: dto.adminEmail },
-    });
-    if (existingRegistry) {
-      throw new ConflictException({ success: false, field: 'adminEmail', message: `Admin email already exists.` });
-    }
+      const existingSlug = await this.prisma.public.store.findUnique({
+        where: { slug: dto.slug },
+      });
+      if (existingSlug) {
+        throw new ConflictException({
+          success: false,
+          message: 'Store slug already exists.',
+          errors: [{ field: 'slug', message: 'Store slug already exists.' }],
+        });
+      }
 
-    // Tenant Schema uniqueness (already implied by slug uniqueness, but let's check registry just in case)
-    const existingSchema = await this.prisma.client.userRegistry.findFirst({
-      where: { schema: `tenant_${dto.slug.replace(/-/g, '_')}` },
-    });
-    if (existingSchema) {
-      throw new ConflictException({ success: false, field: 'slug', message: `Tenant schema already exists.` });
-    }
+      const existingName = await this.prisma.public.store.findFirst({
+        where: { name: { equals: dto.name, mode: 'insensitive' } },
+      });
+      if (existingName) {
+        throw new ConflictException({
+          success: false,
+          message: 'Store name already exists.',
+          errors: [{ field: 'name', message: 'Store name already exists.' }],
+        });
+      }
+
+      // Check Company Name (businessName) using raw query since it's inside JSON settings
+      if (dto.businessName) {
+        const existingBusiness = await this.prisma.public.$queryRaw`
+          SELECT id FROM "Store" 
+          WHERE settings->>'businessName' ILIKE ${dto.businessName}
+          LIMIT 1
+        `;
+        if (Array.isArray(existingBusiness) && existingBusiness.length > 0) {
+          throw new ConflictException({
+            success: false,
+            message: 'Company name already exists.',
+            errors: [{ field: 'businessName', message: 'Company name already exists.' }],
+          });
+        }
+      }
+
+      const existingRegistry = await this.prisma.public.userRegistry.findFirst({
+        where: { email: dto.adminEmail },
+      });
+      if (existingRegistry) {
+        throw new ConflictException({
+          success: false,
+          message: 'Admin email already exists.',
+          errors: [{ field: 'adminEmail', message: 'Admin email already exists.' }],
+        });
+      }
+
+      // Tenant Schema uniqueness
+      const existingSchema = await this.prisma.public.userRegistry.findFirst({
+        where: { schema: `tenant_${dto.slug.replace(/-/g, '_')}` },
+      });
+      if (existingSchema) {
+        throw new ConflictException({
+          success: false,
+          message: 'Tenant schema already exists.',
+          errors: [{ field: 'slug', message: 'Tenant schema already exists.' }],
+        });
+      }
 
     const hashedPassword = await bcrypt.hash(dto.adminPassword, 10);
 
-    let ownerUser = await this.prisma.client.user.findFirst({
+    let ownerUser = await this.prisma.public.user.findFirst({
       where: { email: dto.adminEmail },
     });
 
     if (!ownerUser) {
-      ownerUser = await this.prisma.client.user.create({
+      ownerUser = await this.prisma.public.user.create({
         data: {
           name: dto.ownerName,
           email: dto.adminEmail,
@@ -92,7 +157,7 @@ export class StoresService {
       });
     }
 
-    const trialDays = dto.trialDays || 14;
+    const trialDays = Number(dto.trialDays) || 14;
     const now = new Date();
     const renewalDate = new Date(now.getTime() + trialDays * 86400000);
 
@@ -128,7 +193,8 @@ export class StoresService {
       },
     };
 
-    const store = await this.prisma.client.store.create({
+    this.logger.log(`Platform database creation: Creating store record for ${dto.slug}...`);
+    const store = await this.prisma.public.store.create({
       data: {
         name: dto.name,
         slug: dto.slug,
@@ -149,8 +215,9 @@ export class StoresService {
 
     const schemaName = `tenant_${dto.slug.replace(/-/g, '_')}`;
     
+    this.logger.log(`Tenant creation: Registering admin email ${dto.adminEmail} to schema ${schemaName}...`);
     try {
-      await this.prisma.client.userRegistry.create({
+      await this.prisma.public.userRegistry.create({
         data: {
           email: dto.adminEmail,
           storeId: store.id,
@@ -160,12 +227,13 @@ export class StoresService {
     } catch {}
 
     // Provision the schema dynamically immediately
-    await this.prisma.client.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+    this.logger.log(`Schema creation: Executing CREATE SCHEMA for ${schemaName}...`);
+    await this.prisma.public.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 
     const client = this.prisma.getTenantClient(schemaName);
 
     // Initialize Schema if empty
-    const tableCheck = await this.prisma.client.$queryRawUnsafe(
+    const tableCheck = await this.prisma.public.$queryRawUnsafe(
       `SELECT EXISTS (
          SELECT FROM information_schema.tables 
          WHERE  table_schema = '${schemaName}'
@@ -174,15 +242,17 @@ export class StoresService {
     ) as { exists: boolean }[];
 
     if (!tableCheck[0]?.exists) {
-      console.log(`Provisioning schema tables for ${schemaName}...`);
+      this.logger.log(`Default admin creation & Seeding: Provisioning schema tables for ${schemaName}...`);
       const sqlPath = path.join(__dirname, '../../../../prisma/tenant-schema.sql');
       if (fs.existsSync(sqlPath)) {
         const sql = fs.readFileSync(sqlPath, 'utf8');
         await client.$executeRawUnsafe(sql);
-        console.log(`Schema tables provisioned successfully for ${schemaName}!`);
+        this.logger.log(`Schema tables provisioned successfully for ${schemaName}!`);
       }
     }
 
+    this.logger.log(`Transaction success: Store ${dto.slug} fully provisioned!`);
+    
     return {
       success: true,
       tenantId: schemaName,
@@ -190,6 +260,16 @@ export class StoresService {
       adminUserId: ownerUser.id,
       message: 'Store provisioned successfully.',
     };
+    } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error(`Transaction rollback: Store provisioning failed for ${dto.slug}. Error: ${error.message}`, error.stack);
+      throw new InternalServerErrorException({
+        success: false,
+        message: 'Unable to create store. Please try again.',
+      });
+    }
   }
 
   async findAll(query: {

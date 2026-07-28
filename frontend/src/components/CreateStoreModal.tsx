@@ -32,6 +32,39 @@ export default function CreateStoreModal({
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [validationError, setValidationError] = useState<any>(null);
+  const [fieldError, setFieldError] = useState<{ field: string; message: string } | null>(null);
+
+  const getStepForField = (field: string): number => {
+    if (['name', 'slug', 'businessName', 'businessType', 'code', 'website'].includes(field)) return 1;
+    if (['country', 'state', 'city', 'postalCode', 'address', 'timezone', 'currency', 'gstNumber', 'taxNumber'].includes(field)) return 2;
+    if (['ownerName', 'ownerEmail', 'adminEmail', 'phone', 'adminPassword', 'confirmPassword'].includes(field)) return 3;
+    if (['planId', 'subscriptionType', 'trialDays', 'status'].includes(field)) return 4;
+    return 1;
+  };
+
+  const setFieldValidationError = (field: string, message: string) => {
+    setFieldError({ field, message });
+    const targetStep = getStepForField(field);
+    setStep(targetStep);
+    setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${field}"]`);
+      if (el) {
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
+  const renderFieldError = (fieldName: string) => {
+    if (fieldError?.field === fieldName) {
+      return <p className="text-xs text-red-400 mt-1 font-medium">{fieldError.message}</p>;
+    }
+    return null;
+  };
+
+  const getFieldBorderClass = (fieldName: string) => {
+    return fieldError?.field === fieldName ? 'border-red-500 ring-1 ring-red-500 bg-red-950/20' : 'border-slate-800 focus:border-indigo-500';
+  };
 
   const [formData, setFormData] = useState<ProvisionStorePayload>({
     name: '',
@@ -72,8 +105,9 @@ export default function CreateStoreModal({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
+    const parsedValue = name === 'trialDays' ? (value === '' ? 0 : Number(value)) : value;
     setFormData((prev) => {
-      const next = { ...prev, [name]: value };
+      const next = { ...prev, [name]: parsedValue };
       if (name === 'name' && !prev.slug) {
         next.slug = value
           .toLowerCase()
@@ -90,26 +124,6 @@ export default function CreateStoreModal({
   };
 
   const handleNextStep = () => {
-    if (step === 1) {
-      if (!formData.name || !formData.slug) {
-        toast.error('Please enter Store Name and Slug');
-        return;
-      }
-    } else if (step === 2) {
-      if (!formData.city || !formData.country) {
-        toast.error('Please enter City and Country');
-        return;
-      }
-    } else if (step === 3) {
-      if (!formData.ownerName || !formData.ownerEmail || !formData.adminEmail || !formData.adminPassword) {
-        toast.error('Please complete Owner Name, Emails, and Admin Password');
-        return;
-      }
-      if (formData.adminPassword !== confirmPassword) {
-        toast.error('Passwords do not match!');
-        return;
-      }
-    }
     setStep((prev) => Math.min(prev + 1, 4));
   };
 
@@ -117,26 +131,76 @@ export default function CreateStoreModal({
     setStep((prev) => Math.max(prev - 1, 1));
   };
 
+  const validateForm = () => {
+    setFieldError(null);
+    setValidationError(null);
+    if (!formData.name) {
+      setFieldValidationError('name', 'Please enter Store Name');
+      toast.error('Please enter Store Name (Step 1)');
+      return false;
+    }
+    if (!formData.slug) {
+      setFieldValidationError('slug', 'Please enter Store Slug');
+      toast.error('Please enter Store Slug (Step 1)');
+      return false;
+    }
+    if (!formData.city || !formData.country) {
+      setFieldValidationError(!formData.city ? 'city' : 'country', 'Please enter City and Country');
+      toast.error('Please enter City and Country (Step 2)');
+      return false;
+    }
+    if (!formData.ownerName) {
+      setFieldValidationError('ownerName', 'Please enter Owner Full Name');
+      toast.error('Please enter Owner Full Name (Step 3)');
+      return false;
+    }
+    if (!formData.ownerEmail) {
+      setFieldValidationError('ownerEmail', 'Please enter Owner Email');
+      toast.error('Please enter Owner Email (Step 3)');
+      return false;
+    }
+    if (!formData.adminEmail) {
+      setFieldValidationError('adminEmail', 'Please enter Admin Login Email');
+      toast.error('Please enter Admin Login Email (Step 3)');
+      return false;
+    }
+    if (!formData.adminPassword) {
+      setFieldValidationError('adminPassword', 'Please enter Admin Initial Password');
+      toast.error('Please enter Admin Initial Password (Step 3)');
+      return false;
+    }
+    if (formData.adminPassword !== confirmPassword) {
+      setFieldValidationError('confirmPassword', 'Passwords do not match');
+      toast.error('Passwords do not match! (Step 3)');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    
     setLoading(true);
     setValidationError(null);
+    setFieldError(null);
     try {
       const result = await storesApi.provisionStore(formData);
       toast.success(result.message || 'Tenant Store Provisioned Successfully!');
       onSuccess();
       onClose();
     } catch (err: any) {
-      if (err.response?.status === 401) {
-        toast.error('Unauthorized: Super Admin access required.');
-        setValidationError({ message: 'Unauthorized: Super Admin access required.', status: 401 });
-      } else if (err.response?.status === 409) {
-        const errorData = err.response.data;
-        toast.error(`Conflict: ${errorData?.message || 'Duplicate data exists'}`);
-        setValidationError(errorData);
-      } else {
-        toast.error(err.response?.data?.message || 'Store Provisioning Failed');
-        setValidationError(err.response?.data || { message: 'Unknown error occurred' });
+      const errorResponse = err.response?.data;
+      const status = err.response?.status;
+      const firstErrorObj = Array.isArray(errorResponse?.errors) && errorResponse.errors.length > 0 ? errorResponse.errors[0] : null;
+      const errField = errorResponse?.field || firstErrorObj?.field;
+      const msg = errorResponse?.message || firstErrorObj?.message || errorResponse?.error || err.message || 'Store Provisioning Failed';
+
+      toast.error(msg);
+      setValidationError(errorResponse || { message: msg, status });
+
+      if (errField) {
+        setFieldValidationError(errField, firstErrorObj?.message || msg);
       }
     } finally {
       setLoading(false);
@@ -182,19 +246,20 @@ export default function CreateStoreModal({
             const completed = step > item.stepNum;
 
             return (
-              <div
+              <button
                 key={item.stepNum}
-                className={`py-3 flex items-center justify-center gap-2 border-r last:border-r-0 border-slate-800 transition-colors ${
-                  active
+                type="button"
+                onClick={() => setStep(item.stepNum)}
+                className={`py-3 flex items-center justify-center gap-2 border-r last:border-r-0 border-slate-800 transition-colors hover:bg-slate-800/50 cursor-pointer ${active
                     ? 'text-indigo-400 bg-indigo-950/30 border-b-2 border-b-indigo-500'
                     : completed
-                    ? 'text-emerald-400'
-                    : 'text-slate-500'
-                }`}
+                      ? 'text-emerald-400'
+                      : 'text-slate-500'
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 <span className="hidden sm:inline">{item.label}</span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -212,30 +277,28 @@ export default function CreateStoreModal({
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Store Name *
                   </label>
-                  <input
-                    required
-                    type="text"
+                  <input type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="e.g. Apex Electronics"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('name')}`}
                   />
+                  {renderFieldError('name')}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Store Slug (URL Identifier) *
                   </label>
-                  <input
-                    required
-                    type="text"
+                  <input type="text"
                     name="slug"
                     value={formData.slug}
                     onChange={handleChange}
                     placeholder="apex-electronics"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-mono ${getFieldBorderClass('slug')}`}
                   />
+                  {renderFieldError('slug')}
                 </div>
 
                 <div>
@@ -248,8 +311,9 @@ export default function CreateStoreModal({
                     value={formData.businessName}
                     onChange={handleChange}
                     placeholder="Apex Technologies LLC"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('businessName')}`}
                   />
+                  {renderFieldError('businessName')}
                 </div>
 
                 <div>
@@ -421,45 +485,42 @@ export default function CreateStoreModal({
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Owner Full Name *
                   </label>
-                  <input
-                    required
-                    type="text"
+                  <input type="text"
                     name="ownerName"
                     value={formData.ownerName}
                     onChange={handleChange}
                     placeholder="Marcus Sterling"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('ownerName')}`}
                   />
+                  {renderFieldError('ownerName')}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Owner Personal Email *
                   </label>
-                  <input
-                    required
-                    type="email"
+                  <input type="email"
                     name="ownerEmail"
                     value={formData.ownerEmail}
                     onChange={handleChange}
                     placeholder="marcus@apexelectronics.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('ownerEmail')}`}
                   />
+                  {renderFieldError('ownerEmail')}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Admin Portal Login Email *
                   </label>
-                  <input
-                    required
-                    type="email"
+                  <input type="email"
                     name="adminEmail"
                     value={formData.adminEmail}
                     onChange={handleChange}
                     placeholder="admin@apexelectronics.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('adminEmail')}`}
                   />
+                  {renderFieldError('adminEmail')}
                 </div>
 
                 <div>
@@ -472,37 +533,37 @@ export default function CreateStoreModal({
                     value={formData.phone}
                     onChange={handleChange}
                     placeholder="+1 (555) 234-5678"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('phone')}`}
                   />
+                  {renderFieldError('phone')}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Admin Initial Password *
                   </label>
-                  <input
-                    required
-                    type="password"
+                  <input type="password"
                     name="adminPassword"
                     value={formData.adminPassword}
                     onChange={handleChange}
                     placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('adminPassword')}`}
                   />
+                  {renderFieldError('adminPassword')}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Confirm Admin Password *
                   </label>
-                  <input
-                    required
-                    type="password"
+                  <input type="password"
+                    name="confirmPassword"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('confirmPassword')}`}
                   />
+                  {renderFieldError('confirmPassword')}
                 </div>
               </div>
             </div>
@@ -635,7 +696,7 @@ export default function CreateStoreModal({
 
         {/* DEBUG PANEL */}
         <div className="bg-slate-950 p-4 border-t border-slate-800 text-xs font-mono text-slate-400 max-h-48 overflow-y-auto">
-          <div className="text-indigo-400 font-bold mb-2">Endpoint: POST {import.meta.env.VITE_API_URL || 'http://localhost:4001/api/v1'}/stores/provision</div>
+          <div className="text-indigo-400 font-bold mb-2">Endpoint: POST {import.meta.env.VITE_API_URL || 'http://localhost:/api/v1'}/stores/provision</div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-slate-300 font-bold mb-1">Request Payload:</div>

@@ -1,7 +1,6 @@
-# Enterprise Multi-Tenant Ecommerce Platform
+# Multi-Tenant Ecommerce Platform
 
-This repository is structured as an **independent frontend and backend monorepo architecture**. 
-Each service manages its own dependencies (`package.json`, `package-lock.json`, and `node_modules`) independently, allowing isolated deployment, independent CI/CD pipelines, and zero shared module leaking.
+A clean, developer-friendly project with independent `frontend` and `backend` applications.
 
 ---
 
@@ -11,35 +10,31 @@ Each service manages its own dependencies (`package.json`, `package-lock.json`, 
 .
 ├── backend/                  # NestJS Multi-Tenant Engine & API Server
 │   ├── src/                  # Application Source Code
-│   ├── prisma/               # Public & Tenant Prisma Schemas + Migrations
-│   ├── Dockerfile            # Production Multi-stage Dockerfile
-│   ├── package.json          # Independent Backend Dependencies
-│   └── package-lock.json     # Deterministic Lockfile
-├── frontend/                 # React 19 + Vite Frontend SPA Application
-│   ├── src/                  # React Source Code
-│   ├── Dockerfile            # Production Nginx SPA Container
-│   ├── package.json          # Independent Frontend Dependencies
-│   └── package-lock.json     # Deterministic Lockfile
-├── .github/
-│   └── workflows/
-│       └── ci.yml            # Independent CI Audit Pipelines
-├── docker-compose.yml        # Orchestration for Postgres, Backend, & Frontend
-└── railway.toml              # Production Deployment Specs
+│   ├── prisma/               # Public & Tenant Prisma Schemas
+│   ├── package.json          # Backend Dependencies
+│   └── package-lock.json     # Lockfile
+└── frontend/                 # React 19 + Vite Frontend SPA
+    ├── src/                  # React Source Code
+    ├── package.json          # Frontend Dependencies
+    └── package-lock.json     # Lockfile
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Development Workflow
 
-### 1. Local Development (Backend)
+### 1. Backend Setup
 
 ```bash
 cd backend
-npm install           # Installs dependencies & triggers Prisma client generation
-npm run start:dev     # Starts NestJS server in watch mode on port 4001
+npm install           # Installs dependencies & generates Prisma clients
+npm run start:dev     # Starts NestJS dev server on port 4001
 ```
 
-### 2. Local Development (Frontend)
+- **API Base URL**: `http://localhost:4001/api/v1`
+- **Swagger Docs**: `http://localhost:4001/api/docs`
+
+### 2. Frontend Setup
 
 ```bash
 cd frontend
@@ -47,27 +42,19 @@ npm install           # Installs dependencies
 npm run dev           # Starts Vite dev server on port 3000
 ```
 
-### 3. Docker Compose Orchestration
-
-```bash
-docker-compose up --build
-```
-
-- **Frontend**: [http://localhost:3000](http://localhost:3000)
-- **Backend API**: [http://localhost:4000/api/v1](http://localhost:4000/api/v1)
-- **Swagger Documentation**: [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
-- **PostgreSQL**: `localhost:5432`
+- **Frontend URL**: `http://localhost:3000`
 
 ---
 
-## 🛠️ Verification & Scripts
+## 🛠️ Common Commands
 
 ### Backend Commands
-- `npm run build`: Compiles TypeScript cleanly to `dist/main.js`.
-- `npm run start:prod`: Runs production bundle from `dist/main.js`.
-- `npm test`: Runs backend test suite.
-- `npm run postinstall`: Generates both public and tenant Prisma clients.
+- `npm run start:dev`: Run NestJS backend in watch mode
+- `npm run build`: Compile TypeScript code to `dist/main.js`
+- `npm test`: Run backend tests
+- `npm run lint`: Run ESLint checks
 
 ### Frontend Commands
-- `npm run build`: Type-checks with `tsc` and builds Vite SPA assets into `dist/`.
-- `npm run preview`: Previews production SPA build locally.
+- `npm run dev`: Run Vite development server
+- `npm run build`: Type-check and build production SPA bundle
+- `npm run preview`: Preview production build locally

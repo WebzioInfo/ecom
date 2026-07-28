@@ -635,7 +635,7 @@ export default function CreateStoreModal({
 
         {/* DEBUG PANEL */}
         <div className="bg-slate-950 p-4 border-t border-slate-800 text-xs font-mono text-slate-400 max-h-48 overflow-y-auto">
-          <div className="text-indigo-400 font-bold mb-2">Endpoint: POST http://localhost:4000/api/v1/stores/provision</div>
+          <div className="text-indigo-400 font-bold mb-2">Endpoint: POST {import.meta.env.VITE_API_URL || 'http://localhost:4001/api/v1'}/stores/provision</div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="text-slate-300 font-bold mb-1">Request Payload:</div>

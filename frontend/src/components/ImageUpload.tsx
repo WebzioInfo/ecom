@@ -35,7 +35,7 @@ export default function ImageUpload({ images, onChange }: ImageUploadProps) {
         });
         
         // Since VITE_API_URL includes /api/v1, but the returned URL is relative (e.g. /uploads/...),
-        // we prepend the base URL (which is http://localhost:4000)
+        // we prepend the base URL
         const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, '');
         newUrls.push(`${baseUrl}${data.url}`);
         toast.success(`Uploaded ${file.name}`);

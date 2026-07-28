@@ -11,7 +11,7 @@ services:
       - PORT=4000
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/ecommerce?schema=public
       - JWT_ACCESS_SECRET=local_access_secret_123
-      - CORS_ORIGINS=http://localhost:3000
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:3006,https://ecomwebzio.vercel.app
     depends_on:
       postgres:
         condition: service_healthy

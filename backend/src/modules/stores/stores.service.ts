@@ -8,6 +8,8 @@ import { Prisma, Store, StoreStatus } from '@prisma/public-client';
 import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
 import { ProvisionStoreDto } from './dto/provision-store.dto';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class StoresService {
@@ -36,7 +38,41 @@ export class StoresService {
       where: { slug: dto.slug },
     });
     if (existingSlug) {
-      throw new ConflictException(`Store with slug '${dto.slug}' already exists`);
+      throw new ConflictException({ success: false, field: 'slug', message: `Store slug already exists.` });
+    }
+
+    const existingName = await this.prisma.client.store.findFirst({
+      where: { name: { equals: dto.name, mode: 'insensitive' } },
+    });
+    if (existingName) {
+      throw new ConflictException({ success: false, field: 'name', message: `Store name already exists.` });
+    }
+
+    // Check Company Name (businessName) using raw query since it's inside JSON settings
+    if (dto.businessName) {
+      const existingBusiness = await this.prisma.client.$queryRaw`
+        SELECT id FROM "Store" 
+        WHERE settings->>'businessName' ILIKE ${dto.businessName}
+        LIMIT 1
+      `;
+      if (Array.isArray(existingBusiness) && existingBusiness.length > 0) {
+        throw new ConflictException({ success: false, field: 'businessName', message: `Company name already exists.` });
+      }
+    }
+
+    const existingRegistry = await this.prisma.client.userRegistry.findFirst({
+      where: { email: dto.adminEmail },
+    });
+    if (existingRegistry) {
+      throw new ConflictException({ success: false, field: 'adminEmail', message: `Admin email already exists.` });
+    }
+
+    // Tenant Schema uniqueness (already implied by slug uniqueness, but let's check registry just in case)
+    const existingSchema = await this.prisma.client.userRegistry.findFirst({
+      where: { schema: `tenant_${dto.slug.replace(/-/g, '_')}` },
+    });
+    if (existingSchema) {
+      throw new ConflictException({ success: false, field: 'slug', message: `Tenant schema already exists.` });
     }
 
     const hashedPassword = await bcrypt.hash(dto.adminPassword, 10);
@@ -111,33 +147,48 @@ export class StoresService {
       } as any,
     });
 
+    const schemaName = \`tenant_\${dto.slug.replace(/-/g, '_')}\`;
+    
     try {
       await this.prisma.client.userRegistry.create({
         data: {
           email: dto.adminEmail,
           storeId: store.id,
-          schema: `tenant_${dto.slug}`,
+          schema: schemaName,
         },
       });
     } catch {}
 
+    // Provision the schema dynamically immediately
+    await this.prisma.client.$executeRawUnsafe(\`CREATE SCHEMA IF NOT EXISTS "\${schemaName}"\`);
+
+    const client = this.prisma.getTenantClient(schemaName);
+
+    // Initialize Schema if empty
+    const tableCheck = await this.prisma.client.$queryRawUnsafe<{ exists: boolean }[]>(
+      \`SELECT EXISTS (
+         SELECT FROM information_schema.tables 
+         WHERE  table_schema = '\${schemaName}'
+         AND    table_name   = 'Product'
+       );\`
+    );
+
+    if (!tableCheck[0]?.exists) {
+      console.log(\`Provisioning schema tables for \${schemaName}...\`);
+      const sqlPath = path.join(__dirname, '../../../../prisma/tenant-schema.sql');
+      if (fs.existsSync(sqlPath)) {
+        const sql = fs.readFileSync(sqlPath, 'utf8');
+        await client.$executeRawUnsafe(sql);
+        console.log(\`Schema tables provisioned successfully for \${schemaName}!\`);
+      }
+    }
+
     return {
       success: true,
-      message: `Store '${dto.name}' successfully provisioned!`,
-      store: {
-        ...store,
-        ownerName: ownerUser.name,
-        ownerEmail: ownerUser.email,
-        settings: storeSettings,
-        urls: storeSettings.urls,
-      },
-      credentials: {
-        adminEmail: ownerUser.email,
-        tempPassword: dto.adminPassword,
-        roles: ownerUser.roles,
-        tenantId: `tenant_${dto.slug}`,
-        storeId: store.id,
-      },
+      tenantId: schemaName,
+      storeId: store.id,
+      adminUserId: ownerUser.id,
+      message: 'Store provisioned successfully.',
     };
   }
 

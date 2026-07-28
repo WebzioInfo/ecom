@@ -31,6 +31,7 @@ export default function CreateStoreModal({
 }: CreateStoreModalProps) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [validationError, setValidationError] = useState<any>(null);
 
   const [formData, setFormData] = useState<ProvisionStorePayload>({
     name: '',
@@ -119,13 +120,24 @@ export default function CreateStoreModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setValidationError(null);
     try {
       const result = await storesApi.provisionStore(formData);
       toast.success(result.message || 'Tenant Store Provisioned Successfully!');
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Store Provisioning Failed');
+      if (err.response?.status === 401) {
+        toast.error('Unauthorized: Super Admin access required.');
+        setValidationError({ message: 'Unauthorized: Super Admin access required.', status: 401 });
+      } else if (err.response?.status === 409) {
+        const errorData = err.response.data;
+        toast.error(`Conflict: ${errorData?.message || 'Duplicate data exists'}`);
+        setValidationError(errorData);
+      } else {
+        toast.error(err.response?.data?.message || 'Store Provisioning Failed');
+        setValidationError(err.response?.data || { message: 'Unknown error occurred' });
+      }
     } finally {
       setLoading(false);
     }
@@ -620,6 +632,23 @@ export default function CreateStoreModal({
             )}
           </div>
         </form>
+
+        {/* DEBUG PANEL */}
+        <div className="bg-slate-950 p-4 border-t border-slate-800 text-xs font-mono text-slate-400 max-h-48 overflow-y-auto">
+          <div className="text-indigo-400 font-bold mb-2">Endpoint: POST http://localhost:4000/api/v1/stores/provision</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-slate-300 font-bold mb-1">Request Payload:</div>
+              <pre>{JSON.stringify(formData, null, 2)}</pre>
+            </div>
+            {validationError && (
+              <div>
+                <div className="text-red-400 font-bold mb-1">Validation Errors:</div>
+                <pre className="text-red-300">{JSON.stringify(validationError, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

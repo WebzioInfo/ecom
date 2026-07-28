@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  HttpCode,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StoresService } from './stores.service';
@@ -33,8 +34,9 @@ export class StoresController {
   }
 
   @Post('provision')
+  @HttpCode(201)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
+  @Roles('SUPER_ADMIN', 'super_admin')
   @ApiOperation({ summary: 'Provision a complete SaaS Tenant Store with credentials & settings' })
   provisionStore(@Body() provisionStoreDto: ProvisionStoreDto) {
     return this.storesService.provisionStore(provisionStoreDto);

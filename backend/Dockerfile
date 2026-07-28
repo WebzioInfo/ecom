@@ -3,12 +3,12 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Install dependencies
-COPY package*.json ./
-COPY prisma ./prisma
+COPY backend/package*.json ./
+COPY backend/prisma ./prisma
 RUN npm ci
 
 # Copy source and build
-COPY . .
+COPY backend/ .
 RUN npm run build
 RUN npm prune --omit=dev
 

@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log*
+*.log
+.git
+.github
+.vscode
+dist
+coverage
+frontend
+shop-demo
+docker-compose.yml
+railway.toml
+railway.json
+README.md

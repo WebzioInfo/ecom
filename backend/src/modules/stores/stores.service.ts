@@ -147,7 +147,7 @@ export class StoresService {
       } as any,
     });
 
-    const schemaName = \`tenant_\${dto.slug.replace(/-/g, '_')}\`;
+    const schemaName = `tenant_${dto.slug.replace(/-/g, '_')}`;
     
     try {
       await this.prisma.client.userRegistry.create({
@@ -160,26 +160,26 @@ export class StoresService {
     } catch {}
 
     // Provision the schema dynamically immediately
-    await this.prisma.client.$executeRawUnsafe(\`CREATE SCHEMA IF NOT EXISTS "\${schemaName}"\`);
+    await this.prisma.client.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 
     const client = this.prisma.getTenantClient(schemaName);
 
     // Initialize Schema if empty
-    const tableCheck = await this.prisma.client.$queryRawUnsafe<{ exists: boolean }[]>(
-      \`SELECT EXISTS (
+    const tableCheck = await this.prisma.client.$queryRawUnsafe(
+      `SELECT EXISTS (
          SELECT FROM information_schema.tables 
-         WHERE  table_schema = '\${schemaName}'
+         WHERE  table_schema = '${schemaName}'
          AND    table_name   = 'Product'
-       );\`
-    );
+       );`
+    ) as { exists: boolean }[];
 
     if (!tableCheck[0]?.exists) {
-      console.log(\`Provisioning schema tables for \${schemaName}...\`);
+      console.log(`Provisioning schema tables for ${schemaName}...`);
       const sqlPath = path.join(__dirname, '../../../../prisma/tenant-schema.sql');
       if (fs.existsSync(sqlPath)) {
         const sql = fs.readFileSync(sqlPath, 'utf8');
         await client.$executeRawUnsafe(sql);
-        console.log(\`Schema tables provisioned successfully for \${schemaName}!\`);
+        console.log(`Schema tables provisioned successfully for ${schemaName}!`);
       }
     }
 

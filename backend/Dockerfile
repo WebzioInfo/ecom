@@ -22,6 +22,7 @@ ENV NODE_ENV=production
 
 # Copy only production dependencies and built files
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci --omit=dev --legacy-peer-deps
 COPY --from=builder /app/dist ./dist
 

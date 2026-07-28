@@ -40,12 +40,15 @@ export interface UpdateProfilePayload {
 export type WishlistResponse = Product[];
 
 export interface ProductVariant {
+  name: string;
   sku: string;
-  title: string;
   price: number;
   stock: number;
-  attributes?: Record<string, string>;
-  barcode?: string;
+}
+
+export interface ProductAttribute {
+  key: string;
+  value: string;
 }
 
 export interface ProductSEO {
@@ -55,25 +58,41 @@ export interface ProductSEO {
 }
 
 export interface Product {
-  _id: string;
+  id: string;
+  _id?: string;
   storeId?: string;
   title: string;
+  shortDescription?: string;
   description: string;
   price: number;
+  offerPrice?: number;
+  costPrice?: number;
   stock: number;
+  minStock?: number;
+  weight?: number;
+  dimensions?: { length?: number; width?: number; height?: number };
+  gst?: number;
+  tax?: number;
   sku: string;
   barcode?: string;
-  productType?: 'simple' | 'variable' | 'digital' | 'subscription' | 'bundle';
+  productType?: string;
   category: string;
   brand: string;
   images: string[];
   variants?: ProductVariant[];
-  seo?: ProductSEO;
+  attributes?: ProductAttribute[];
+  seoTitle?: string;
+  seoDescription?: string;
+  tags?: string[];
   rating: number;
   discount: number;
+  status?: string;
   featured: boolean;
   isActive: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ListProductsParams {
@@ -96,18 +115,30 @@ export interface ProductFilters {
 export interface CreateProductPayload {
   storeId?: string;
   title: string;
+  shortDescription?: string;
   description: string;
   price: number;
+  offerPrice?: number;
+  costPrice?: number;
   stock: number;
-  sku: string;
+  minStock?: number;
+  weight?: number;
+  dimensions?: { length?: number; width?: number; height?: number };
+  gst?: number;
+  tax?: number;
+  sku?: string;
   barcode?: string;
-  productType?: string;
   category: string;
   brand: string;
-  images: string[];
+  images?: string[];
   variants?: ProductVariant[];
+  attributes?: ProductAttribute[];
+  seoTitle?: string;
+  seoDescription?: string;
+  tags?: string[];
   rating?: number;
   discount?: number;
+  status?: string;
   featured?: boolean;
   isActive?: boolean;
 }

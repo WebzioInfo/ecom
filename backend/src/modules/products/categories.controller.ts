@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -33,19 +35,19 @@ export class CategoriesController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() dto: any) {
+  async create(@Body() dto: CreateCategoryDto) {
     return this.categoriesService.create(dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: any) {
+  async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.update(id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  async replace(@Param('id') id: string, @Body() dto: any) {
+  async replace(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.update(id, dto);
   }
 
@@ -67,3 +69,4 @@ export class CategoriesController {
     return this.categoriesService.restore(id);
   }
 }
+

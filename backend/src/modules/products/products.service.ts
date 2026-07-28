@@ -129,19 +129,23 @@ export class ProductsService {
   }
 
   async bulkUpdate(ids: string[], data: any) {
-    await this.prisma.client.product.updateMany({
-      where: { id: { in: ids } },
-      data,
+    const result = await this.prisma.client.$transaction(async (tx) => {
+      return tx.product.updateMany({
+        where: { id: { in: ids } },
+        data,
+      });
     });
-    return { success: true, count: ids.length };
+    return { success: true, count: result.count };
   }
 
   async bulkDelete(ids: string[]) {
-    await this.prisma.client.product.updateMany({
-      where: { id: { in: ids } },
-      data: { isDeleted: true, deletedAt: new Date(), isActive: false, status: 'ARCHIVED' },
+    const result = await this.prisma.client.$transaction(async (tx) => {
+      return tx.product.updateMany({
+        where: { id: { in: ids } },
+        data: { isDeleted: true, deletedAt: new Date(), isActive: false, status: 'ARCHIVED' },
+      });
     });
-    return { success: true, count: ids.length };
+    return { success: true, count: result.count };
   }
 
   async getCategories(): Promise<string[]> {

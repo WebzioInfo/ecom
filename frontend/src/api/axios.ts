@@ -14,25 +14,28 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('access_token');
   const activeStoreId = localStorage.getItem('active_store_id');
   
-  const isAuthRoute = config.url && config.url.includes('/auth/login');
+  const isAuthRoute = config.url && (config.url.includes('/auth/login') || config.url.includes('/auth/register') || config.url.includes('/auth/refresh'));
 
   if (token && config.headers && !isAuthRoute) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  if (activeStoreId && activeStoreId !== 'undefined' && activeStoreId !== 'none' && config.headers && !config.headers['x-store-id']) {
-    config.headers['x-store-id'] = activeStoreId;
-  }
+  // Prevent attaching store headers to auth routes which can fail backend UserRegistry validation
+  if (!isAuthRoute) {
+    if (activeStoreId && activeStoreId !== 'undefined' && activeStoreId !== 'none' && config.headers && !config.headers['x-store-id']) {
+      config.headers['x-store-id'] = activeStoreId;
+    }
 
-  // Automatically derive store slug from subdomain if present (e.g. acme.commercepro.com -> acme)
-  if (config.headers && !config.headers['x-store-id'] && !config.headers['x-store-slug']) {
-    const hostname = window.location.hostname;
-    const parts = hostname.split('.');
-    // Exclude localhost and common generic subdomains
-    if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'app' && parts[0] !== 'admin') {
-      const derivedSlug = parts[0];
-      if (derivedSlug) {
-        config.headers['x-store-slug'] = derivedSlug;
+    // Automatically derive store slug from subdomain if present (e.g. acme.commercepro.com -> acme)
+    if (config.headers && !config.headers['x-store-id'] && !config.headers['x-store-slug']) {
+      const hostname = window.location.hostname;
+      const parts = hostname.split('.');
+      // Exclude localhost and common generic subdomains
+      if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'app' && parts[0] !== 'admin') {
+        const derivedSlug = parts[0];
+        if (derivedSlug) {
+          config.headers['x-store-slug'] = derivedSlug;
+        }
       }
     }
   }

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { productsApi } from '../api/products.api';
 import { useTenantStore } from '../store/useTenantStore';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Package, Sparkles, Layers, Tag, ShieldAlert } from 'lucide-react';
+import { uploadFile } from '../api/uploads.api';
+import { ArrowLeft, Save, Package, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminProductCreatePage() {
@@ -349,24 +350,44 @@ export default function AdminProductCreatePage() {
 
           {/* MEDIA & IMAGES */}
           <div className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">Product Media & Gallery</h3>
+            <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-indigo-400" /> Product Media & Gallery
+            </h3>
+            
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Main Cover Image URL</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Main Cover Image</label>
+              {mainImage && (
+                <div className="mb-2 w-32 h-32 rounded-lg border border-slate-700 bg-slate-950 overflow-hidden flex items-center justify-center">
+                  <img src={mainImage} alt="Main" className="object-contain max-h-full" />
+                </div>
+              )}
               <input
-                type="text"
-                value={mainImage}
-                onChange={(e) => setMainImage(e.target.value)}
-                placeholder="https://..."
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none font-mono"
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    try {
+                      toast.loading('Uploading...', { id: 'upload-main' });
+                      const url = await uploadFile(file);
+                      setMainImage(url);
+                      toast.success('Uploaded successfully', { id: 'upload-main' });
+                    } catch (error) {
+                      toast.error('Upload failed', { id: 'upload-main' });
+                    }
+                  }
+                }}
+                className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/10 file:text-indigo-400 hover:file:bg-indigo-500/20"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Gallery Image URLs (Comma separated)</label>
+            
+            <div className="pt-2">
+              <label className="block text-xs font-medium text-slate-300 mb-1">Gallery Image URLs (Comma separated fallbacks)</label>
               <textarea
                 rows={2}
                 value={galleryImages}
                 onChange={(e) => setGalleryImages(e.target.value)}
-                placeholder="https://img1.com, https://img2.com"
+                placeholder="/uploads/img1.jpg, /uploads/img2.jpg"
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>

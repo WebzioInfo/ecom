@@ -5,7 +5,7 @@ WORKDIR /app
 # Install dependencies
 COPY backend/package*.json ./
 COPY backend/prisma ./prisma
-RUN npm ci
+RUN npm install
 
 # Copy source and build
 COPY backend/ .

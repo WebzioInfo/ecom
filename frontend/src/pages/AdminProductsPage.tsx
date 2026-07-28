@@ -12,12 +12,21 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [stockFilter, setStockFilter] = useState('');
 
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const res = await productsApi.list({ search, limit: 50 });
+      const params: any = { search, limit: 50 };
+      if (statusFilter) params.status = statusFilter;
+      if (stockFilter === 'in_stock') params.inStock = 'true';
+      if (stockFilter === 'low_stock') params.lowStock = 'true';
+      
+      const res = await productsApi.list(params);
       setProducts(res.data);
+      setSelectedIds([]);
     } catch (err) {
       toast.error('Failed to load products');
     } finally {
@@ -27,7 +36,31 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     loadProducts();
-  }, [search, activeStore]);
+  }, [search, statusFilter, stockFilter, activeStore]);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(products.map(p => p.id || p._id || ''));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.length) return;
+    if (!confirm(`Delete ${selectedIds.length} products?`)) return;
+    try {
+      await productsApi.bulkDelete(selectedIds);
+      toast.success(`${selectedIds.length} products deleted`);
+      loadProducts();
+    } catch {
+      toast.error('Bulk delete failed');
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
@@ -58,8 +91,8 @@ export default function AdminProductsPage() {
       </div>
 
       {/* FILTER BAR */}
-      <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl flex items-center justify-between">
-        <div className="relative w-80">
+      <div className="p-3 bg-slate-900/60 border border-slate-800/80 rounded-xl flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
@@ -69,13 +102,54 @@ export default function AdminProductsPage() {
             className="w-full pl-9 pr-4 py-1.5 bg-slate-800/60 border border-slate-700/60 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
           />
         </div>
+        
+        <div className="flex items-center gap-3">
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-slate-800/60 border border-slate-700/60 rounded-lg text-xs text-slate-200 py-1.5 px-3 focus:outline-none focus:border-indigo-500"
+          >
+            <option value="">All Statuses</option>
+            <option value="PUBLISHED">Published</option>
+            <option value="DRAFT">Draft</option>
+          </select>
+          
+          <select 
+            value={stockFilter}
+            onChange={(e) => setStockFilter(e.target.value)}
+            className="bg-slate-800/60 border border-slate-700/60 rounded-lg text-xs text-slate-200 py-1.5 px-3 focus:outline-none focus:border-indigo-500"
+          >
+            <option value="">All Stock</option>
+            <option value="in_stock">In Stock</option>
+            <option value="low_stock">Low Stock</option>
+          </select>
+        </div>
       </div>
+
+      {/* BULK ACTIONS */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-indigo-900/20 border border-indigo-500/30 rounded-xl">
+          <span className="text-xs font-semibold text-indigo-300">{selectedIds.length} products selected</span>
+          <div className="h-4 w-px bg-slate-700" />
+          <button onClick={handleBulkDelete} className="text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1">
+            <Trash2 className="w-3 h-3" /> Bulk Delete
+          </button>
+        </div>
+      )}
 
       {/* PRODUCTS TABLE */}
       <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl overflow-hidden">
         <table className="w-full text-left text-xs text-slate-300">
           <thead className="bg-slate-800/50 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-800">
             <tr>
+              <th className="p-3.5 w-10">
+                <input 
+                  type="checkbox" 
+                  checked={products.length > 0 && selectedIds.length === products.length}
+                  onChange={handleSelectAll}
+                  className="accent-indigo-600 rounded cursor-pointer"
+                />
+              </th>
               <th className="p-3.5">Product Info</th>
               <th className="p-3.5">SKU</th>
               <th className="p-3.5">Category</th>
@@ -96,7 +170,15 @@ export default function AdminProductsPage() {
               products.map((p) => {
                 const prodId = (p as any).id || (p as any)._id;
                 return (
-                  <tr key={prodId} className="hover:bg-slate-800/40 transition">
+                  <tr key={prodId} className={`hover:bg-slate-800/40 transition ${selectedIds.includes(prodId) ? 'bg-indigo-900/10' : ''}`}>
+                    <td className="p-3.5">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(prodId)}
+                        onChange={() => handleSelectOne(prodId)}
+                        className="accent-indigo-600 rounded cursor-pointer"
+                      />
+                    </td>
                     <td className="p-3.5 flex items-center gap-3">
                       <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {p.images?.[0] ? (

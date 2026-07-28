@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { productsApi } from '../api/products.api';
+import { uploadFile } from '../api/uploads.api';
 import { useTenantStore } from '../store/useTenantStore';
 import {
   Plus,
@@ -307,7 +308,13 @@ export default function AdminCategoriesPage() {
 
       {/* MAIN CONTENT AREA */}
       {loading ? (
-        <div className="p-12 text-center text-slate-500">Loading category taxonomy...</div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-xl p-4 space-y-4">
+          <div className="h-10 bg-slate-800/50 rounded-xl animate-pulse"></div>
+          <div className="h-12 bg-slate-800/30 rounded-xl animate-pulse"></div>
+          <div className="h-12 bg-slate-800/30 rounded-xl animate-pulse"></div>
+          <div className="h-12 bg-slate-800/30 rounded-xl animate-pulse"></div>
+          <div className="h-12 bg-slate-800/30 rounded-xl animate-pulse"></div>
+        </div>
       ) : viewMode === 'tree' ? (
         <div className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 shadow-xl space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
@@ -523,25 +530,46 @@ export default function AdminCategoriesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Cover Image / Icon URL</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Cover Image (Upload)</label>
                   <input
-                    type="text"
-                    value={image}
-                    onChange={(e) => setImage(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500"
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          const url = await uploadFile(file);
+                          setImage(url);
+                        } catch (error) {
+                          console.error('Image upload failed', error);
+                          // Show toast error if needed
+                        }
+                      }
+                    }}
+                    className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/10 file:text-indigo-400 hover:file:bg-indigo-500/20"
                   />
+                  {image && <img src={image} alt="Preview" className="mt-2 h-12 w-12 object-cover rounded-xl border border-slate-700" />}
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Banner Image URL</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Banner Image (Upload)</label>
                   <input
-                    type="text"
-                    value={banner}
-                    onChange={(e) => setBanner(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-indigo-500"
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          const url = await uploadFile(file);
+                          setBanner(url);
+                        } catch (error) {
+                          console.error('Banner upload failed', error);
+                        }
+                      }
+                    }}
+                    className="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/10 file:text-indigo-400 hover:file:bg-indigo-500/20"
                   />
+                  {banner && <img src={banner} alt="Banner Preview" className="mt-2 h-12 w-24 object-cover rounded-xl border border-slate-700" />}
                 </div>
               </div>
 

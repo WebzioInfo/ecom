@@ -77,7 +77,8 @@ export default function ProductForm({ product }: ProductFormProps) {
 
     try {
       if (isEdit && product) {
-        await productsApi.update(product._id, payload);
+        const productId = product._id || product.id;
+        await productsApi.update(productId, payload);
         toast.success('Product updated');
       } else {
         await productsApi.create(payload);

@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, Product } from '@prisma/client';
+import { Product } from '@prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ListProductsDto } from './dto/list-products.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
     const data: any = { ...createProductDto };
@@ -129,7 +129,7 @@ export class ProductsService {
   }
 
   async bulkUpdate(ids: string[], data: any) {
-    const result = await this.prisma.client.$transaction(async (tx) => {
+    const result = await this.prisma.client.$transaction(async (tx: any) => {
       return tx.product.updateMany({
         where: { id: { in: ids } },
         data,
@@ -139,7 +139,7 @@ export class ProductsService {
   }
 
   async bulkDelete(ids: string[]) {
-    const result = await this.prisma.client.$transaction(async (tx) => {
+    const result = await this.prisma.client.$transaction(async (tx: any) => {
       return tx.product.updateMany({
         where: { id: { in: ids } },
         data: { isDeleted: true, deletedAt: new Date(), isActive: false, status: 'ARCHIVED' },

@@ -372,14 +372,63 @@ export class StoresService {
   }
 
   async update(id: string, updateStoreDto: UpdateStoreDto): Promise<Store> {
-    try {
-      return await this.prisma.client.store.update({
-        where: { id },
-        data: updateStoreDto as any,
-      });
-    } catch {
+    const store = await this.prisma.client.store.findUnique({
+      where: { id },
+      include: { owner: true }
+    });
+    
+    if (!store) {
       throw new NotFoundException(`Store #${id} not found`);
     }
+
+    const { slug, adminEmail, settings, subscription, ...rest } = updateStoreDto;
+    const data: any = { ...rest };
+
+    if (slug && slug !== store.slug) {
+      const existingSlug = await this.prisma.client.store.findUnique({ where: { slug } });
+      if (existingSlug) {
+        throw new ConflictException({
+          success: false,
+          message: 'Store slug already exists.',
+          errors: [{ field: 'slug', message: 'Store slug already exists.' }],
+        });
+      }
+      data.slug = slug;
+    }
+
+    if (adminEmail && store.owner && adminEmail !== store.owner.email) {
+      const existingUser = await this.prisma.client.user.findUnique({ where: { email: adminEmail } });
+      const existingRegistry = await this.prisma.client.userRegistry.findFirst({ where: { email: adminEmail } });
+      if (existingUser || existingRegistry) {
+        throw new ConflictException({
+          success: false,
+          message: 'Admin email already exists.',
+          errors: [{ field: 'adminEmail', message: 'Admin email already exists.' }],
+        });
+      }
+      
+      await this.prisma.client.user.update({
+        where: { id: store.ownerId },
+        data: { email: adminEmail }
+      });
+      await this.prisma.client.userRegistry.updateMany({
+        where: { email: store.owner.email, storeId: store.id },
+        data: { email: adminEmail }
+      });
+    }
+
+    if (settings) {
+      data.settings = { ...(store.settings as any || {}), ...settings };
+    }
+    
+    if (subscription) {
+      data.subscription = { ...(store.subscription as any || {}), ...subscription };
+    }
+
+    return await this.prisma.client.store.update({
+      where: { id },
+      data,
+    });
   }
 
   async setStatus(id: string, status: StoreStatus): Promise<Store> {

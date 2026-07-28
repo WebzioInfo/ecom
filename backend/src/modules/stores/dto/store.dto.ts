@@ -48,6 +48,14 @@ export class UpdateStoreDto {
 
   @IsString()
   @IsOptional()
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
+  adminEmail?: string;
+
+  @IsString()
+  @IsOptional()
   domain?: string;
 
   @IsString()

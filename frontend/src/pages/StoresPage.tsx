@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { storesApi, Store } from '../api/stores.api';
 import { plansApi, Plan, getPlanId } from '../api/plans.api';
 import CreateStoreModal from '../components/CreateStoreModal';
+import EditStoreModal from '../components/EditStoreModal';
 import { useAuthStore } from '../store/useAuthStore';
 import {
   Plus,
@@ -24,6 +25,7 @@ import {
   CheckSquare,
   Square,
   Zap,
+  Edit2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -47,6 +49,8 @@ export default function StoresPage() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editStoreId, setEditStoreId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
@@ -406,6 +410,16 @@ export default function StoresPage() {
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            onClick={() => {
+                              setEditStoreId(sId);
+                              setShowEditModal(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition-colors"
+                            title="Edit Store Details"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => navigate(`/admin/stores/${sId}`)}
                             className="p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition-colors"
                             title="Open Tenant Management Center"
@@ -462,6 +476,15 @@ export default function StoresPage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onSuccess={loadData}
+        plans={plans}
+      />
+
+      {/* EDIT STORE MODAL */}
+      <EditStoreModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSuccess={loadData}
+        storeId={editStoreId}
         plans={plans}
       />
     </div>

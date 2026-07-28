@@ -14,7 +14,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/src/main.js",
+    "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -107,6 +107,14 @@
     "node": ">=22.0.0"
   },
   "overrides": {
-    "brace-expansion": "^2.0.1"
+    "brace-expansion": "2.0.2",
+    "minimatch": "9.0.5",
+    "glob": "11.0.1",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "9.0.5"
+    },
+    "@eslint/config-array": {
+      "minimatch": "9.0.5"
+    }
   }
 }

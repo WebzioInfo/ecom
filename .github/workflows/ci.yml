@@ -19,6 +19,8 @@ jobs:
           cache-dependency-path: 'backend/package-lock.json'
       - name: Install dependencies
         run: cd backend && npm ci
+      - name: Generate Prisma Clients
+        run: cd backend && npx prisma generate --schema=prisma/schema.public.prisma && npx prisma generate --schema=prisma/schema.tenant.prisma
       - name: Lint backend
         run: cd backend && npm run lint
       - name: Test backend

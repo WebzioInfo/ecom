@@ -5,7 +5,7 @@ WORKDIR /app
 # Install dependencies
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm install
+RUN npm ci
 
 # Copy source and build
 COPY . .
@@ -30,5 +30,5 @@ USER node
 
 EXPOSE 4000
 
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/main.js"]
 

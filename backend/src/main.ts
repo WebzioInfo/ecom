@@ -71,7 +71,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = 4001;
+  const port = Number(configService.get<number>('PORT')) || Number(process.env.PORT) || 4001;
 
   // Graceful Process Signals Handling
   const handleShutdown = async (signal: string) => {

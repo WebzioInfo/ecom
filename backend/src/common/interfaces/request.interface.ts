@@ -12,6 +12,7 @@ export interface AuthenticatedUser {
   type?: string;
   permissions?: string[];
   schemaName?: string;
+  allowedStores?: string[];
 }
 
 export interface AuthenticatedRequest extends Request {

@@ -8,74 +8,109 @@ import {
   Delete,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { ListCustomersDto } from './dto/list-customers.dto';
+import { CreateCustomerAddressDto } from './dto/create-address.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { TenantGuard } from '../../common/guards/tenant.guard';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 
-@ApiTags('Store Customers CRM')
-@ApiBearerAuth()
+@ApiTags('Customers & Address Book')
 @Controller('customers')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('customers.create')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new customer profile' })
-  create(@Body() dto: CreateCustomerDto) {
-    return this.customersService.create(dto);
+  create(@Body() dto: CreateCustomerDto, @Req() req: any) {
+    return this.customersService.create(dto, req.user?.userId);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all customers for current tenant' })
-  findAll(
-    @Query('search') search?: string,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
-    return this.customersService.findByStore('tenant-context', {
-      search,
-      page: +page,
-      limit: +limit,
-    });
-  }
-
-  @Get('store/:storeId')
-  @Roles('super_admin', 'admin', 'company_admin', 'manager', 'staff')
-  @ApiOperation({ summary: 'List all customers for a store' })
-  findByStore(
-    @Param('storeId') storeId: string,
-    @Query('search') search?: string,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
-    return this.customersService.findByStore(storeId, {
-      search,
-      page: +page,
-      limit: +limit,
-    });
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('customers.view')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get customers with search and pagination' })
+  findAll(@Query() query: ListCustomersDto) {
+    return this.customersService.findAll(query);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get customer by ID' })
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('customers.view')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get customer details by ID' })
   findOne(@Param('id') id: string) {
     return this.customersService.findOne(id);
   }
 
   @Patch(':id')
-  @Roles('super_admin', 'admin', 'company_admin', 'manager')
-  @ApiOperation({ summary: 'Update customer details' })
-  update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
-    return this.customersService.update(id, dto);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('customers.update')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update customer profile' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCustomerDto,
+    @Req() req: any,
+  ) {
+    return this.customersService.update(id, dto, req.user?.userId);
   }
 
   @Delete(':id')
-  @Roles('super_admin', 'admin', 'company_admin')
-  @ApiOperation({ summary: 'Delete customer record' })
-  remove(@Param('id') id: string) {
-    return this.customersService.remove(id);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('customers.delete')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Soft delete customer' })
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.customersService.softDelete(id, req.user?.userId);
+  }
+
+  @Post(':id/restore')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('customers.update')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Restore soft deleted customer' })
+  restore(@Param('id') id: string, @Req() req: any) {
+    return this.customersService.restore(id, req.user?.userId);
+  }
+
+  // --- Address Book Endpoints ---
+
+  @Post(':id/addresses')
+  @UseGuards(TenantGuard)
+  @ApiOperation({ summary: 'Add a new address for a customer' })
+  addAddress(
+    @Param('id') id: string,
+    @Body() dto: CreateCustomerAddressDto,
+  ) {
+    return this.customersService.addAddress(id, dto);
+  }
+
+  @Patch('addresses/:addressId')
+  @UseGuards(TenantGuard)
+  @ApiOperation({ summary: 'Update customer address' })
+  updateAddress(
+    @Param('addressId') addressId: string,
+    @Body() dto: Partial<CreateCustomerAddressDto>,
+  ) {
+    return this.customersService.updateAddress(addressId, dto);
+  }
+
+  @Delete('addresses/:addressId')
+  @UseGuards(TenantGuard)
+  @ApiOperation({ summary: 'Delete customer address' })
+  deleteAddress(@Param('addressId') addressId: string) {
+    return this.customersService.deleteAddress(addressId);
   }
 }

@@ -17,19 +17,37 @@ export const useAuth = () => {
         localStorage.setItem('refresh_token', data.refresh_token);
       }
 
-      // 2. Fetch the full user profile using the new token
+      // 2. Hydrate Zustand store immediately from login response payload
+      if (data.user) {
+        setUser({
+          id: data.user.id || (data.user as any)._id || '',
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role || data.user.roles?.[0] || 'USER',
+          roles: data.user.roles || [],
+          permissions: data.user.permissions || [],
+          accessibleModules: data.user.accessibleModules || [],
+          isSuperAdmin: data.user.isSuperAdmin || false,
+          storeId: data.user.storeId || '',
+        });
+      }
+
+      // 3. Re-verify user profile with GET /auth/me
       try {
         const profile = await authApi.me();
         setUser({
-          id: profile._id,
+          id: profile.id || profile._id || '',
           email: profile.email,
           name: profile.name,
-          roles: profile.roles,
+          role: profile.role || profile.roles?.[0] || 'USER',
+          roles: profile.roles || [],
+          permissions: profile.permissions || [],
+          accessibleModules: profile.accessibleModules || [],
+          isSuperAdmin: profile.isSuperAdmin || false,
+          storeId: profile.storeId || '',
         });
-      } catch {
-        // Fallback: If /auth/me fails despite a fresh token, clear and reject
-        localStorage.removeItem('access_token');
-        setUser(null);
+      } catch (error) {
+        // Log background profile verification fallback
       }
     },
   });
@@ -45,10 +63,15 @@ export const useAuth = () => {
         try {
           const profile = await authApi.me();
           setUser({
-            id: profile._id,
+            id: profile.id || profile._id || '',
             email: profile.email,
             name: profile.name,
-            roles: profile.roles,
+            role: profile.role || profile.roles?.[0] || 'USER',
+            roles: profile.roles || [],
+            permissions: profile.permissions || [],
+            accessibleModules: profile.accessibleModules || [],
+            isSuperAdmin: profile.isSuperAdmin || false,
+            storeId: profile.storeId || '',
           });
         } catch {
           localStorage.removeItem('access_token');

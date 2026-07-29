@@ -4,14 +4,10 @@ import {
   Store as StoreIcon,
   User,
   CreditCard,
-  MapPin,
   CheckCircle,
   ArrowRight,
   ArrowLeft,
   Loader2,
-  Shield,
-  Key,
-  Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { storesApi, ProvisionStorePayload } from '../api/stores.api';
@@ -31,81 +27,71 @@ export default function CreateStoreModal({
 }: CreateStoreModalProps) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [validationError, setValidationError] = useState<any>(null);
-  const [fieldError, setFieldError] = useState<{ field: string; message: string } | null>(null);
-
-  const getStepForField = (field: string): number => {
-    if (['name', 'slug', 'businessName', 'businessType', 'code', 'website'].includes(field)) return 1;
-    if (['country', 'state', 'city', 'postalCode', 'address', 'timezone', 'currency', 'gstNumber', 'taxNumber'].includes(field)) return 2;
-    if (['ownerName', 'ownerEmail', 'adminEmail', 'phone', 'adminPassword', 'confirmPassword'].includes(field)) return 3;
-    if (['planId', 'subscriptionType', 'trialDays', 'status'].includes(field)) return 4;
-    return 1;
-  };
-
-  const setFieldValidationError = (field: string, message: string) => {
-    setFieldError({ field, message });
-    const targetStep = getStepForField(field);
-    setStep(targetStep);
-    setTimeout(() => {
-      const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${field}"]`);
-      if (el) {
-        el.focus();
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
-  };
-
-  const renderFieldError = (fieldName: string) => {
-    if (fieldError?.field === fieldName) {
-      return <p className="text-xs text-red-400 mt-1 font-medium">{fieldError.message}</p>;
-    }
-    return null;
-  };
-
-  const getFieldBorderClass = (fieldName: string) => {
-    return fieldError?.field === fieldName ? 'border-red-500 ring-1 ring-red-500 bg-red-950/20' : 'border-slate-800 focus:border-indigo-500';
-  };
+  const [provisionProgress, setProvisionProgress] = useState<number>(0);
+  const [provisionStepLabel, setProvisionStepLabel] = useState<string>('');
 
   const [formData, setFormData] = useState<ProvisionStorePayload>({
     name: '',
-    businessName: '',
-    businessType: 'Retail Commerce',
     slug: '',
-    code: '',
-    logo: '',
-    website: '',
     ownerName: '',
-    ownerEmail: '',
     adminEmail: '',
     adminPassword: '',
+    businessName: '',
+    businessType: 'Retail Commerce',
+    planId: 'starter',
     phone: '',
-    altPhone: '',
     country: 'USA',
-    state: 'California',
-    district: 'West Coast',
     city: 'San Francisco',
     address: '742 Evergreen Terrace',
-    postalCode: '94105',
     timezone: 'UTC-8 (PST)',
     currency: 'USD',
-    language: 'en',
-    gstNumber: '29ABCDE1234F1Z5',
-    taxNumber: 'TAX-987654321',
-    planId: 'basic',
-    subscriptionType: 'MONTHLY',
     trialDays: 14,
-    status: 'ACTIVE',
   });
 
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!isOpen) return null;
+
+  const validateStep = (currentStep: number): boolean => {
+    const errs: Record<string, string> = {};
+
+    if (currentStep === 1) {
+      if (!formData.name.trim()) errs.name = 'Store name is required';
+      if (!formData.slug.trim()) {
+        errs.slug = 'Store slug is required';
+      } else if (!/^[a-z0-9-]+$/.test(formData.slug.trim())) {
+        errs.slug = 'Slug must contain only lowercase letters, numbers, and hyphens';
+      }
+    }
+
+    if (currentStep === 2) {
+      if (!formData.ownerName.trim()) errs.ownerName = 'Owner name is required';
+      if (!formData.adminEmail.trim()) {
+        errs.adminEmail = 'Admin email is required';
+      } else if (!/^\S+@\S+\.\S+$/.test(formData.adminEmail.trim())) {
+        errs.adminEmail = 'Please enter a valid email address';
+      }
+      if (!formData.adminPassword) {
+        errs.adminPassword = 'Password is required';
+      } else if (formData.adminPassword.length < 8) {
+        errs.adminPassword = 'Password must be at least 8 characters long';
+      }
+      if (formData.adminPassword !== confirmPassword) {
+        errs.confirmPassword = 'Passwords do not match';
+      }
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     const parsedValue = name === 'trialDays' ? (value === '' ? 0 : Number(value)) : value;
+
     setFormData((prev) => {
       const next = { ...prev, [name]: parsedValue };
       if (name === 'name' && !prev.slug) {
@@ -113,133 +99,97 @@ export default function CreateStoreModal({
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)+/g, '');
-        next.code = `STR-${next.slug.toUpperCase()}`;
         next.businessName = value;
-      }
-      if (name === 'ownerEmail' && !prev.adminEmail) {
-        next.adminEmail = value;
       }
       return next;
     });
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleNextStep = () => {
-    setStep((prev) => Math.min(prev + 1, 4));
+    if (validateStep(step)) {
+      setStep((prev) => Math.min(prev + 1, 4));
+    }
   };
 
   const handlePrevStep = () => {
     setStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const validateForm = () => {
-    setFieldError(null);
-    setValidationError(null);
-    if (!formData.name) {
-      setFieldValidationError('name', 'Please enter Store Name');
-      toast.error('Please enter Store Name (Step 1)');
-      return false;
-    }
-    if (!formData.slug) {
-      setFieldValidationError('slug', 'Please enter Store Slug');
-      toast.error('Please enter Store Slug (Step 1)');
-      return false;
-    }
-    if (!formData.city || !formData.country) {
-      setFieldValidationError(!formData.city ? 'city' : 'country', 'Please enter City and Country');
-      toast.error('Please enter City and Country (Step 2)');
-      return false;
-    }
-    if (!formData.ownerName) {
-      setFieldValidationError('ownerName', 'Please enter Owner Full Name');
-      toast.error('Please enter Owner Full Name (Step 3)');
-      return false;
-    }
-    if (!formData.ownerEmail) {
-      setFieldValidationError('ownerEmail', 'Please enter Owner Email');
-      toast.error('Please enter Owner Email (Step 3)');
-      return false;
-    }
-    if (!formData.adminEmail) {
-      setFieldValidationError('adminEmail', 'Please enter Admin Login Email');
-      toast.error('Please enter Admin Login Email (Step 3)');
-      return false;
-    }
-    if (!formData.adminPassword) {
-      setFieldValidationError('adminPassword', 'Please enter Admin Initial Password');
-      toast.error('Please enter Admin Initial Password (Step 3)');
-      return false;
-    }
-    if (formData.adminPassword !== confirmPassword) {
-      setFieldValidationError('confirmPassword', 'Passwords do not match');
-      toast.error('Passwords do not match! (Step 3)');
-      return false;
-    }
-    return true;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    
+    if (!validateStep(1) || !validateStep(2)) return;
+
     setLoading(true);
-    setValidationError(null);
-    setFieldError(null);
+    setProvisionProgress(15);
+    setProvisionStepLabel('Initializing store schema...');
+
     try {
-      const result = await storesApi.provisionStore(formData);
-      toast.success(result.message || 'Tenant Store Provisioned Successfully!');
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      const errorResponse = err.response?.data;
-      const status = err.response?.status;
-      const firstErrorObj = Array.isArray(errorResponse?.errors) && errorResponse.errors.length > 0 ? errorResponse.errors[0] : null;
-      const errField = errorResponse?.field || firstErrorObj?.field;
-      const msg = errorResponse?.message || firstErrorObj?.message || errorResponse?.error || err.message || 'Store Provisioning Failed';
+      const steps = [
+        { pct: 35, label: 'Allocating schema & DDL migrations...' },
+        { pct: 65, label: 'Provisioning admin account & role permissions...' },
+        { pct: 85, label: 'Generating API key pairs...' },
+      ];
 
-      toast.error(msg);
-      setValidationError(errorResponse || { message: msg, status });
-
-      if (errField) {
-        setFieldValidationError(errField, firstErrorObj?.message || msg);
+      for (const s of steps) {
+        await new Promise((r) => setTimeout(r, 200));
+        setProvisionProgress(s.pct);
+        setProvisionStepLabel(s.label);
       }
+
+      const result = await storesApi.provisionStore(formData);
+      setProvisionProgress(100);
+      setProvisionStepLabel('Store created successfully!');
+
+      toast.success(result.message || 'New Store Created Successfully!');
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+        setStep(1);
+        setProvisionProgress(0);
+      }, 400);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to create store';
+      toast.error(Array.isArray(msg) ? msg.join(', ') : msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white border border-slate-200/80 rounded-2xl w-full max-w-2xl overflow-hidden shadow-xl flex flex-col max-h-[90vh] text-slate-900 font-sans">
         {/* MODAL HEADER */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-950/40">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
-              <StoreIcon className="w-6 h-6" />
+            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-semibold text-sm">
+              <StoreIcon className="w-4.5 h-4.5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                Provision New SaaS Tenant Store
-              </h2>
-              <p className="text-xs text-slate-400">
-                Automated multi-tenant setup & admin credentials generation.
+              <h2 className="text-base font-semibold text-slate-900 tracking-tight">Provision Merchant Store</h2>
+              <p className="text-xs text-slate-500 font-normal">
+                Setup new isolated tenant schema and store owner access.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 bg-slate-100/80 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* STEP PROGRESS INDICATOR */}
-        <div className="grid grid-cols-4 border-b border-slate-800 bg-slate-950/20 text-center text-xs font-semibold">
+        <div className="grid grid-cols-4 border-b border-slate-100 bg-slate-50/80 text-xs font-medium">
           {[
-            { stepNum: 1, label: 'Store Profile', icon: StoreIcon },
-            { stepNum: 2, label: 'Location & Tax', icon: MapPin },
-            { stepNum: 3, label: 'Admin Credentials', icon: Key },
-            { stepNum: 4, label: 'Subscription', icon: CreditCard },
+            { stepNum: 1, label: '1. Profile', icon: StoreIcon },
+            { stepNum: 2, label: '2. Owner', icon: User },
+            { stepNum: 3, label: '3. Plan', icon: CreditCard },
+            { stepNum: 4, label: '4. Review', icon: CheckCircle },
           ].map((item) => {
             const Icon = item.icon;
             const active = step === item.stepNum;
@@ -249,15 +199,18 @@ export default function CreateStoreModal({
               <button
                 key={item.stepNum}
                 type="button"
-                onClick={() => setStep(item.stepNum)}
-                className={`py-3 flex items-center justify-center gap-2 border-r last:border-r-0 border-slate-800 transition-colors hover:bg-slate-800/50 cursor-pointer ${active
-                    ? 'text-indigo-400 bg-indigo-950/30 border-b-2 border-b-indigo-500'
+                onClick={() => {
+                  if (item.stepNum < step || validateStep(step)) setStep(item.stepNum);
+                }}
+                className={`py-2.5 flex items-center justify-center gap-2 border-r last:border-r-0 border-slate-200/60 transition-all ${
+                  active
+                    ? 'text-blue-600 bg-white font-semibold border-b-2 border-b-blue-600'
                     : completed
-                      ? 'text-emerald-400'
-                      : 'text-slate-500'
-                  }`}
+                    ? 'text-slate-700 font-medium'
+                    : 'text-slate-400 font-normal'
+                }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{item.label}</span>
               </button>
             );
@@ -265,327 +218,182 @@ export default function CreateStoreModal({
         </div>
 
         {/* FORM CONTENT */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* STEP 1: STORE PROFILE */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+          {/* STEP 1: STORE BUSINESS DETAILS */}
           {step === 1 && (
             <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-200 border-b border-slate-800 pb-2">
-                Step 1: Store & Business Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border-b border-slate-100 pb-2">
+                <h3 className="text-sm font-semibold text-slate-900">Step 1: Store Business Details</h3>
+                <p className="text-slate-500 font-normal">Define the store name, domain slug, and business type.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Store Name *
-                  </label>
-                  <input type="text"
+                  <label className="block font-medium text-slate-700 mb-1">Store Name *</label>
+                  <input
+                    type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder="e.g. Apex Electronics"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('name')}`}
+                    placeholder="e.g. Apex Commerce"
+                    className={`w-full bg-slate-50 border ${
+                      errors.name ? 'border-rose-400' : 'border-slate-200/90'
+                    } rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all`}
+                    required
                   />
-                  {renderFieldError('name')}
+                  {errors.name && <p className="text-[11px] text-rose-500 mt-1 font-normal">{errors.name}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Store Slug (URL Identifier) *
-                  </label>
-                  <input type="text"
+                  <label className="block font-medium text-slate-700 mb-1">Subdomain Slug *</label>
+                  <input
+                    type="text"
                     name="slug"
                     value={formData.slug}
                     onChange={handleChange}
-                    placeholder="apex-electronics"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none font-mono ${getFieldBorderClass('slug')}`}
+                    placeholder="apex-commerce"
+                    className={`w-full bg-slate-50 border ${
+                      errors.slug ? 'border-rose-400' : 'border-slate-200/90'
+                    } rounded-lg px-3.5 py-2 text-slate-900 font-mono focus:outline-none focus:border-blue-500 focus:bg-white transition-all`}
+                    required
                   />
-                  {renderFieldError('slug')}
+                  {errors.slug ? (
+                    <p className="text-[11px] text-rose-500 mt-1 font-normal">{errors.slug}</p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 mt-1 font-mono">Isolated schema: tenant_{formData.slug || 'slug'}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Legal Business Name
-                  </label>
+                  <label className="block font-medium text-slate-700 mb-1">Business Name</label>
                   <input
                     type="text"
                     name="businessName"
-                    value={formData.businessName}
+                    value={formData.businessName || ''}
                     onChange={handleChange}
-                    placeholder="Apex Technologies LLC"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('businessName')}`}
+                    placeholder="Legal Entity Name"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
                   />
-                  {renderFieldError('businessName')}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Business Type
-                  </label>
-                  <select
-                    name="businessType"
-                    value={formData.businessType}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="Retail Commerce">Retail Commerce</option>
-                    <option value="Wholesale B2B">Wholesale B2B</option>
-                    <option value="Digital Services">Digital Services</option>
-                    <option value="Fashion & Apparel">Fashion & Apparel</option>
-                    <option value="Electronics & Tech">Electronics & Tech</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Store Code
-                  </label>
+                  <label className="block font-medium text-slate-700 mb-1">Business Industry / Type</label>
                   <input
                     type="text"
-                    name="code"
-                    value={formData.code}
+                    name="businessType"
+                    value={formData.businessType || ''}
                     onChange={handleChange}
-                    placeholder="STR-APEX"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Website URL
-                  </label>
-                  <input
-                    type="url"
-                    name="website"
-                    value={formData.website}
-                    onChange={handleChange}
-                    placeholder="https://apexelectronics.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    placeholder="e.g. Fashion, Electronics, Retail"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 2: LOCATION & TAX */}
+          {/* STEP 2: OWNER CREDENTIALS */}
           {step === 2 && (
             <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-200 border-b border-slate-800 pb-2">
-                Step 2: Location, Currency & Tax Registration
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Country</label>
-                  <input
-                    type="text"
-                    name="country"
-                    value={formData.country}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">State / Province</label>
-                  <input
-                    type="text"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">City</label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Postal Code</label>
-                  <input
-                    type="text"
-                    name="postalCode"
-                    value={formData.postalCode}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Street Address</label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Timezone</label>
-                  <input
-                    type="text"
-                    name="timezone"
-                    value={formData.timezone}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Currency</label>
-                  <input
-                    type="text"
-                    name="currency"
-                    value={formData.currency}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">GST Number</label>
-                  <input
-                    type="text"
-                    name="gstNumber"
-                    value={formData.gstNumber}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tax ID Number</label>
-                  <input
-                    type="text"
-                    name="taxNumber"
-                    value={formData.taxNumber}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
-                  />
-                </div>
+              <div className="border-b border-slate-100 pb-2">
+                <h3 className="text-sm font-semibold text-slate-900">Step 2: Owner Credentials & Access</h3>
+                <p className="text-slate-500 font-normal">Provision initial store administrator login credentials.</p>
               </div>
-            </div>
-          )}
 
-          {/* STEP 3: ADMIN CREDENTIALS */}
-          {step === 3 && (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-200 border-b border-slate-800 pb-2">
-                Step 3: Store Owner & Admin Account Setup
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Owner Full Name *
-                  </label>
-                  <input type="text"
+                  <label className="block font-medium text-slate-700 mb-1">Owner Full Name *</label>
+                  <input
+                    type="text"
                     name="ownerName"
                     value={formData.ownerName}
                     onChange={handleChange}
                     placeholder="Marcus Sterling"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('ownerName')}`}
+                    className={`w-full bg-slate-50 border ${
+                      errors.ownerName ? 'border-rose-400' : 'border-slate-200/90'
+                    } rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all`}
+                    required
                   />
-                  {renderFieldError('ownerName')}
+                  {errors.ownerName && <p className="text-[11px] text-rose-500 mt-1 font-normal">{errors.ownerName}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Owner Personal Email *
-                  </label>
-                  <input type="email"
-                    name="ownerEmail"
-                    value={formData.ownerEmail}
-                    onChange={handleChange}
-                    placeholder="marcus@apexelectronics.com"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('ownerEmail')}`}
-                  />
-                  {renderFieldError('ownerEmail')}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Admin Portal Login Email *
-                  </label>
-                  <input type="email"
+                  <label className="block font-medium text-slate-700 mb-1">Admin Email Address *</label>
+                  <input
+                    type="email"
                     name="adminEmail"
                     value={formData.adminEmail}
                     onChange={handleChange}
-                    placeholder="admin@apexelectronics.com"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('adminEmail')}`}
+                    placeholder="admin@apexcommerce.com"
+                    className={`w-full bg-slate-50 border ${
+                      errors.adminEmail ? 'border-rose-400' : 'border-slate-200/90'
+                    } rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all`}
+                    required
                   />
-                  {renderFieldError('adminEmail')}
+                  {errors.adminEmail && <p className="text-[11px] text-rose-500 mt-1 font-normal">{errors.adminEmail}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Phone Number
-                  </label>
+                  <label className="block font-medium text-slate-700 mb-1">Initial Password * (Min 8 chars)</label>
                   <input
-                    type="text"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="+1 (555) 234-5678"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('phone')}`}
-                  />
-                  {renderFieldError('phone')}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Admin Initial Password *
-                  </label>
-                  <input type="password"
+                    type="password"
                     name="adminPassword"
                     value={formData.adminPassword}
                     onChange={handleChange}
                     placeholder="••••••••"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('adminPassword')}`}
+                    className={`w-full bg-slate-50 border ${
+                      errors.adminPassword ? 'border-rose-400' : 'border-slate-200/90'
+                    } rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all`}
+                    required
                   />
-                  {renderFieldError('adminPassword')}
+                  {errors.adminPassword && <p className="text-[11px] text-rose-500 mt-1 font-normal">{errors.adminPassword}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Confirm Admin Password *
-                  </label>
-                  <input type="password"
-                    name="confirmPassword"
+                  <label className="block font-medium text-slate-700 mb-1">Confirm Password *</label>
+                  <input
+                    type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className={`w-full bg-slate-950 border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none ${getFieldBorderClass('confirmPassword')}`}
+                    className={`w-full bg-slate-50 border ${
+                      errors.confirmPassword ? 'border-rose-400' : 'border-slate-200/90'
+                    } rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all`}
+                    required
                   />
-                  {renderFieldError('confirmPassword')}
+                  {errors.confirmPassword && <p className="text-[11px] text-rose-500 mt-1 font-normal">{errors.confirmPassword}</p>}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-medium text-slate-700 mb-1">Contact Phone (Optional)</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone || ''}
+                    onChange={handleChange}
+                    placeholder="+1 (555) 019-2834"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  />
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 4: SUBSCRIPTION */}
-          {step === 4 && (
+          {/* STEP 3: LOCATION & SAAS PLAN */}
+          {step === 3 && (
             <div className="space-y-4 animate-fade-in">
-              <h3 className="text-sm font-bold text-slate-200 border-b border-slate-800 pb-2">
-                Step 4: Subscription & Tier Selection
-              </h3>
+              <div className="border-b border-slate-100 pb-2">
+                <h3 className="text-sm font-semibold text-slate-900">Step 3: Location & SaaS Plan</h3>
+                <p className="text-slate-500 font-normal">Assign pricing plan tier, currency, and address defaults.</p>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Select SaaS Plan Tier
-                  </label>
+                  <label className="block font-medium text-slate-700 mb-1">SaaS Plan Tier</label>
                   <select
                     name="planId"
                     value={formData.planId}
                     onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
                   >
                     {plans.map((p) => (
                       <option key={p.id || p._id || p.code} value={p.code || p.id}>
@@ -596,78 +404,153 @@ export default function CreateStoreModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Billing Cycle
-                  </label>
-                  <select
-                    name="subscriptionType"
-                    value={formData.subscriptionType}
-                    onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="MONTHLY">MONTHLY BILLING</option>
-                    <option value="YEARLY">YEARLY BILLING (20% OFF)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Free Trial Days
-                  </label>
+                  <label className="block font-medium text-slate-700 mb-1">Trial Period (Days)</label>
                   <input
                     type="number"
                     min="0"
                     name="trialDays"
-                    value={formData.trialDays}
+                    value={formData.trialDays || 14}
                     onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Store Initial Status
-                  </label>
+                  <label className="block font-medium text-slate-700 mb-1">Default Currency</label>
                   <select
-                    name="status"
-                    value={formData.status}
+                    name="currency"
+                    value={formData.currency || 'USD'}
                     onChange={handleChange}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
                   >
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="PENDING">PENDING SETUP</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="CAD">CAD ($)</option>
+                    <option value="AUD">AUD ($)</option>
                   </select>
                 </div>
-              </div>
 
-              {/* GENERATED URLS PREVIEW */}
-              <div className="bg-slate-950/60 p-4 border border-slate-800 rounded-2xl space-y-2 mt-4">
-                <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Globe className="w-4 h-4" /> Generated Tenant URLs Preview
+                <div>
+                  <label className="block font-medium text-slate-700 mb-1">Timezone</label>
+                  <select
+                    name="timezone"
+                    value={formData.timezone || 'UTC-8 (PST)'}
+                    onChange={handleChange}
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  >
+                    <option value="UTC-8 (PST)">UTC-8 (PST)</option>
+                    <option value="UTC-5 (EST)">UTC-5 (EST)</option>
+                    <option value="UTC+0 (GMT)">UTC+0 (GMT)</option>
+                    <option value="UTC+1 (CET)">UTC+1 (CET)</option>
+                  </select>
                 </div>
-                <div className="text-xs text-slate-300 font-mono space-y-1">
-                  <div>
-                    <span className="text-slate-500">Storefront URL:</span> http://localhost:3000/store/
-                    <span className="text-emerald-400 font-bold">{formData.slug || 'slug'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Admin Portal URL:</span> http://localhost:5173/admin?store=
-                    <span className="text-indigo-400 font-bold">{formData.slug || 'slug'}</span>
-                  </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 mb-1">Country</label>
+                  <input
+                    type="text"
+                    name="country"
+                    value={formData.country || ''}
+                    onChange={handleChange}
+                    placeholder="e.g. USA"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 mb-1">City</label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city || ''}
+                    onChange={handleChange}
+                    placeholder="e.g. San Francisco"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-medium text-slate-700 mb-1">Physical Address</label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address || ''}
+                    onChange={handleChange}
+                    placeholder="e.g. 742 Evergreen Terrace"
+                    className="w-full bg-slate-50 border border-slate-200/90 rounded-lg px-3.5 py-2 text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                  />
                 </div>
               </div>
             </div>
           )}
 
+          {/* STEP 4: REVIEW & PROVISION */}
+          {step === 4 && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="border-b border-slate-100 pb-2">
+                <h3 className="text-sm font-semibold text-slate-900">Step 4: Review & Provision</h3>
+                <p className="text-slate-500 font-normal">Review store configuration details before final provision.</p>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 font-normal block">Store Name</span>
+                    <span className="font-semibold text-slate-900">{formData.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-normal block">Subdomain</span>
+                    <span className="font-mono font-semibold text-blue-600">{formData.slug}.saasplatform.com</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-normal block">Owner Name</span>
+                    <span className="font-semibold text-slate-900">{formData.ownerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-normal block">Admin Email</span>
+                    <span className="font-semibold text-slate-700">{formData.adminEmail}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-normal block">SaaS Plan Tier</span>
+                    <span className="font-semibold text-slate-900 capitalize">{formData.planId} Tier</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-normal block">Trial Period</span>
+                    <span className="font-semibold text-slate-700">{formData.trialDays} Days Free Trial</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* LIVE PROVISIONING PROGRESS BAR */}
+              {loading && (
+                <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-medium text-blue-900">
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" /> {provisionStepLabel}
+                    </span>
+                    <span className="font-mono">{provisionProgress}%</span>
+                  </div>
+                  <div className="w-full bg-blue-200/60 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-blue-600 h-1.5 rounded-full transition-all duration-200"
+                      style={{ width: `${provisionProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* FOOTER ACTIONS */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             {step > 1 ? (
               <button
                 type="button"
                 onClick={handlePrevStep}
-                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl transition-colors text-xs"
+                className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-medium rounded-lg transition-colors text-xs"
               >
-                <ArrowLeft className="w-4 h-4" /> Previous Step
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
             ) : (
               <div />
@@ -677,39 +560,22 @@ export default function CreateStoreModal({
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-xs"
+                className="flex items-center gap-2 px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg shadow-xs transition-all text-xs"
               >
-                Continue <ArrowRight className="w-4 h-4" />
+                Continue <ArrowRight className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/20 transition-all text-xs"
+                className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg shadow-xs transition-all text-xs"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Provision Tenant Store Now
+                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                Provision Store
               </button>
             )}
           </div>
         </form>
-
-        {/* DEBUG PANEL */}
-        <div className="bg-slate-950 p-4 border-t border-slate-800 text-xs font-mono text-slate-400 max-h-48 overflow-y-auto">
-          <div className="text-indigo-400 font-bold mb-2">Endpoint: POST {import.meta.env.VITE_API_URL || 'http://localhost:/api/v1'}/stores/provision</div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-slate-300 font-bold mb-1">Request Payload:</div>
-              <pre>{JSON.stringify(formData, null, 2)}</pre>
-            </div>
-            {validationError && (
-              <div>
-                <div className="text-red-400 font-bold mb-1">Validation Errors:</div>
-                <pre className="text-red-300">{JSON.stringify(validationError, null, 2)}</pre>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,207 +1,253 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { CartService } from '../cart/cart.service';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Order, OrderStatus } from '@prisma/client';
-import { CreateOrderDto } from './dto/create-order.dto';
+import { ListOrdersDto } from './dto/list-orders.dto';
+import { CatalogEventService } from '../products/events/catalog-event.service';
+import { OrderStatus } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
+  // Strict Order State Machine Transition Matrix
+  private readonly allowedTransitions: Record<string, string[]> = {
+    PENDING: ['CONFIRMED', 'CANCELLED'],
+    CONFIRMED: ['PROCESSING', 'CANCELLED'],
+    PROCESSING: ['SHIPPED', 'CANCELLED'],
+    SHIPPED: ['DELIVERED'],
+    DELIVERED: ['REFUNDED'],
+    CANCELLED: [],
+    REFUNDED: [],
+  };
+
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService,
-    private cartService: CartService,
+    private eventService: CatalogEventService,
   ) {}
 
-  async createOrder(userId: string, createOrderDto: CreateOrderDto) {
-    let orderItems =
-      createOrderDto.items?.map((item) => ({
-        product: item.productId,
-        quantity: item.quantity,
-        priceAtPurchase: item.priceAtPurchase,
-      })) || [];
+  async findAll(query: ListOrdersDto) {
+    const {
+      search,
+      status,
+      paymentStatus,
+      fulfillmentStatus,
+      customerId,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 20,
+    } = query;
 
-    if (!orderItems.length) {
-      const cart = await this.cartService.getCart(userId);
-      const items = cart.items as any[];
-      orderItems = items.map((item) => {
-        const product = item.product;
-        if (typeof product === 'string') {
-          return {
-            product,
-            quantity: item.quantity,
-            priceAtPurchase: 0,
-          };
-        }
-        return {
-          product: product.id || product._id,
-          title: product.title,
-          images: product.images,
-          quantity: item.quantity,
-          priceAtPurchase: product.price ?? 0,
-        };
-      });
+    const skip = (page - 1) * limit;
+    const where: any = {};
+
+    if (status) where.status = status;
+    if (paymentStatus) where.paymentStatus = paymentStatus;
+    if (fulfillmentStatus) where.fulfillmentStatus = fulfillmentStatus;
+    if (customerId) where.customerId = customerId;
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
-    const totalAmount = orderItems.reduce(
-      (sum, item) => sum + item.priceAtPurchase * item.quantity,
-      0,
-    );
-
-    const orderNumber = `ORD-${Date.now().toString().slice(-6)}`;
-
-    const savedOrder = await this.prisma.client.order.create({
-      data: {
-        orderNumber,
-        userId,
-        items: orderItems,
-        totalAmount,
-        taxAmount: Math.round(totalAmount * 0.1 * 100) / 100,
-        status: OrderStatus.PENDING,
-        paymentStatus: 'PAID',
-        deliveryStatus: 'UNFULFILLED',
-        timeline: [
-          { status: 'ORDER_PLACED', timestamp: new Date().toISOString(), note: 'Order placed successfully' }
-        ],
-      }
-    });
-
-    await this.cartService.clearCart(userId);
-
-    const phone =
-      this.configService.get<string>('WHATSAPP_PHONE')?.replace(/\D/g, '') ||
-      '15551234567';
-    const message = encodeURIComponent(
-      `Order ID: ${savedOrder.orderNumber || savedOrder.id}\nTotal: $${totalAmount.toFixed(2)}\nView: ${createOrderDto.returnUrl || ''}`,
-    );
-
-    return {
-      order: savedOrder,
-      whatsappUrl: `https://wa.me/${phone}?text=${message}`,
-    };
-  }
-
-  async getOrders(userId: string, roles: string[], query: any = {}) {
-    const isStoreAdmin = roles.some(r => ['admin', 'super_admin', 'store_admin', 'store_owner', 'STORE_ADMIN', 'STORE_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(r));
-    const where: any = isStoreAdmin ? {} : { userId };
-
-    if (query.status) where.status = query.status;
-    if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
-    if (query.deliveryStatus) where.deliveryStatus = query.deliveryStatus;
-
-    if (query.search) {
+    if (search) {
       where.OR = [
-        { orderNumber: { contains: query.search, mode: 'insensitive' } },
-        { id: { contains: query.search, mode: 'insensitive' } },
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { guestEmail: { contains: search, mode: 'insensitive' } },
+        { customer: { firstName: { contains: search, mode: 'insensitive' } } },
+        { customer: { lastName: { contains: search, mode: 'insensitive' } } },
+        { customer: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Number(query.limit) || 20);
-    const skip = (page - 1) * limit;
-
     const [data, total] = await Promise.all([
-      this.prisma.client.order.findMany({
+      this.prisma.tenant.order.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
+        include: {
+          customer: { select: { id: true, firstName: true, lastName: true, email: true } },
+          items: true,
+          payments: { select: { id: true, gateway: true, status: true, amount: true } },
+          shipments: { select: { id: true, trackingNumber: true, status: true } },
+        },
       }),
-      this.prisma.client.order.count({ where }),
+      this.prisma.tenant.order.count({ where }),
     ]);
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
-  async getOrderById(userId: string, id: string, roles: string[]) {
-    const isStoreAdmin = roles.some(r => ['admin', 'super_admin', 'store_admin', 'store_owner', 'STORE_ADMIN', 'STORE_OWNER', 'ADMIN', 'SUPER_ADMIN'].includes(r));
-    const order = await this.prisma.client.order.findUnique({
-      where: { id }
+  async findOne(id: string) {
+    const order = await this.prisma.tenant.order.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        items: {
+          include: {
+            product: { select: { id: true, title: true, slug: true } },
+            variant: { select: { id: true, title: true, sku: true } },
+          },
+        },
+        payments: true,
+        shipments: true,
+        invoices: true,
+      },
     });
 
-    if (!order) throw new NotFoundException('Order not found');
-
-    if (!isStoreAdmin && order.userId !== userId) {
-      throw new NotFoundException('Order not found');
-    }
+    if (!order) throw new NotFoundException(`Order #${id} not found.`);
     return order;
   }
 
-  async updateOrderStatus(id: string, dto: { status?: OrderStatus; paymentStatus?: string; deliveryStatus?: string; note?: string }) {
-    const order = await this.prisma.client.order.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('Order not found');
+  async updateStatus(id: string, newStatus: OrderStatus, userId?: string) {
+    const order = await this.findOne(id);
+    const currentStatus = order.status;
 
-    const timeline = Array.isArray(order.timeline) ? [...(order.timeline as any[])] : [];
-    if (dto.status) {
-      timeline.push({ status: dto.status, timestamp: new Date().toISOString(), note: dto.note || `Status updated to ${dto.status}` });
+    // Validate State Machine Transition
+    const allowed = this.allowedTransitions[currentStatus] || [];
+    if (!allowed.includes(newStatus)) {
+      throw new BadRequestException(
+        `Invalid order status transition from '${currentStatus}' to '${newStatus}'.`,
+      );
     }
-    if (dto.deliveryStatus) {
-      timeline.push({ status: dto.deliveryStatus, timestamp: new Date().toISOString(), note: `Delivery status updated to ${dto.deliveryStatus}` });
+
+    const updated = await this.prisma.tenant.order.update({
+      where: { id },
+      data: { status: newStatus },
+    });
+
+    if (userId) {
+      try {
+        await this.prisma.tenant.auditLog.create({
+          data: {
+            userId,
+            action: 'ORDER_STATUS_UPDATE',
+            entity: 'Order',
+            entityId: id,
+            changes: { from: currentStatus, to: newStatus } as any,
+          },
+        });
+      } catch {}
     }
 
-    return this.prisma.client.order.update({
-      where: { id },
-      data: {
-        ...(dto.status && { status: dto.status }),
-        ...(dto.paymentStatus && { paymentStatus: dto.paymentStatus }),
-        ...(dto.deliveryStatus && { deliveryStatus: dto.deliveryStatus }),
-        timeline,
-      },
+    this.eventService.emit('order.updated' as any, {
+      orderId: id,
+      orderNumber: updated.orderNumber,
+      status: newStatus,
     });
+
+    if (newStatus === OrderStatus.DELIVERED) {
+      this.eventService.emit('order.completed' as any, {
+        orderId: id,
+        orderNumber: updated.orderNumber,
+      });
+    }
+
+    return updated;
   }
 
-  async fulfillOrder(id: string, dto: { courier: string; trackingNumber: string; note?: string }) {
-    const order = await this.prisma.client.order.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('Order not found');
+  async cancelOrder(id: string, userId?: string) {
+    const order = await this.findOne(id);
 
-    const timeline = Array.isArray(order.timeline) ? [...(order.timeline as any[])] : [];
-    timeline.push({
-      status: 'SHIPPED',
-      timestamp: new Date().toISOString(),
-      note: `Fulfilled via ${dto.courier} (Tracking: ${dto.trackingNumber})`,
-    });
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException(`Order '${order.orderNumber}' is already CANCELLED.`);
+    }
 
-    return this.prisma.client.order.update({
+    if (order.status === OrderStatus.SHIPPED || order.status === OrderStatus.DELIVERED) {
+      throw new BadRequestException(`Order '${order.orderNumber}' cannot be cancelled as it is already ${order.status}.`);
+    }
+
+    const updated = await this.prisma.tenant.order.update({
       where: { id },
-      data: {
-        status: OrderStatus.SHIPPED,
-        deliveryStatus: 'SHIPPED',
-        courier: dto.courier,
-        trackingNumber: dto.trackingNumber,
-        timeline,
-      },
+      data: { status: OrderStatus.CANCELLED },
     });
+
+    // Release Reserved Inventory
+    for (const item of order.items) {
+      const inventoryItem = await this.prisma.tenant.inventoryItem.findFirst({
+        where: {
+          productId: item.productId,
+          variantId: item.variantId || null,
+        },
+      });
+
+      if (inventoryItem) {
+        await this.prisma.tenant.inventoryItem.update({
+          where: { id: inventoryItem.id },
+          data: { reservedQuantity: Math.max(0, inventoryItem.reservedQuantity - item.quantity) },
+        });
+      }
+    }
+
+    if (userId) {
+      try {
+        await this.prisma.tenant.auditLog.create({
+          data: {
+            userId,
+            action: 'ORDER_CANCEL',
+            entity: 'Order',
+            entityId: id,
+            changes: { status: OrderStatus.CANCELLED } as any,
+          },
+        });
+      } catch {}
+    }
+
+    this.eventService.emit('inventory.released' as any, {
+      orderId: id,
+      orderNumber: order.orderNumber,
+    });
+
+    this.eventService.emit('order.cancelled' as any, {
+      orderId: id,
+      orderNumber: order.orderNumber,
+    });
+
+    return updated;
   }
 
-  async refundOrder(id: string, dto: { amount?: number; reason?: string }) {
-    const order = await this.prisma.client.order.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('Order not found');
+  async returnOrder(id: string, userId?: string) {
+    const order = await this.findOne(id);
 
-    const timeline = Array.isArray(order.timeline) ? [...(order.timeline as any[])] : [];
-    timeline.push({
-      status: 'REFUNDED',
-      timestamp: new Date().toISOString(),
-      note: `Refunded $${dto.amount || order.totalAmount}. Reason: ${dto.reason || 'Customer request'}`,
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException(`Order '${order.orderNumber}' must be DELIVERED to request a return.`);
+    }
+
+    if (userId) {
+      try {
+        await this.prisma.tenant.auditLog.create({
+          data: {
+            userId,
+            action: 'ORDER_RETURN_REQUESTED',
+            entity: 'Order',
+            entityId: id,
+            changes: { orderNumber: order.orderNumber } as any,
+          },
+        });
+      } catch {}
+    }
+
+    this.eventService.emit('order.updated' as any, {
+      orderId: id,
+      orderNumber: order.orderNumber,
+      action: 'RETURN_REQUESTED',
     });
 
-    return this.prisma.client.order.update({
-      where: { id },
-      data: {
-        status: OrderStatus.CANCELLED,
-        paymentStatus: 'REFUNDED',
-        timeline,
-      },
-    });
-  }
-
-  async generateInvoiceData(id: string) {
-    const order = await this.prisma.client.order.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('Order not found');
-
-    return {
-      invoiceNumber: `INV-${order.orderNumber || order.id.slice(0, 8)}`,
-      issueDate: new Date(order.createdAt).toLocaleDateString(),
-      order,
-    };
+    return { message: `Return request logged for Order '${order.orderNumber}'.` };
   }
 }

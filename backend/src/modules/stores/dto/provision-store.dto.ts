@@ -1,139 +1,79 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsEmail,
-  IsNumber,
-  IsEnum,
-  MinLength,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { StoreStatus } from '@prisma/public-client';
+import { IsString, IsNotEmpty, IsEmail, IsOptional, Matches, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ProvisionStoreDto {
-  // Store Basic Details
+  @ApiProperty({ description: 'Store Name', example: 'Nike Official Store' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @IsString()
-  @IsOptional()
-  businessName?: string;
-
-  @IsString()
-  @IsOptional()
-  businessType?: string;
-
+  @ApiProperty({ description: 'Unique Store Slug', example: 'nike' })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^[a-z0-9-]+$/, { message: 'Slug must be lowercase alphanumeric with hyphens' })
   slug: string;
 
-  @IsString()
-  @IsOptional()
-  code?: string;
-
-  @IsString()
-  @IsOptional()
-  logo?: string;
-
-  @IsString()
-  @IsOptional()
-  website?: string;
-
-  // Owner & Admin Credentials
+  @ApiProperty({ description: 'Store Owner Name', example: 'Phil Knight' })
   @IsString()
   @IsNotEmpty()
   ownerName: string;
 
-  @IsEmail()
-  @IsNotEmpty()
-  ownerEmail: string;
-
+  @ApiProperty({ description: 'Admin Email', example: 'admin@nike.com' })
   @IsEmail()
   @IsNotEmpty()
   adminEmail: string;
 
+  @ApiProperty({ description: 'Admin Initial Password', example: 'SecureP@ss123' })
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   adminPassword: string;
 
-  @IsString()
+  @ApiPropertyOptional({ description: 'SaaS Plan ID (free, starter, business, enterprise)', default: 'starter' })
   @IsOptional()
-  phone?: string;
-
   @IsString()
-  @IsOptional()
-  altPhone?: string;
-
-  // Location & Contact
-  @IsString()
-  @IsOptional()
-  country?: string;
-
-  @IsString()
-  @IsOptional()
-  state?: string;
-
-  @IsString()
-  @IsOptional()
-  district?: string;
-
-  @IsString()
-  @IsOptional()
-  city?: string;
-
-  @IsString()
-  @IsOptional()
-  address?: string;
-
-  @IsString()
-  @IsOptional()
-  postalCode?: string;
-
-  @IsString()
-  @IsOptional()
-  timezone?: string;
-
-  @IsString()
-  @IsOptional()
-  currency?: string;
-
-  @IsString()
-  @IsOptional()
-  language?: string;
-
-  // Tax & Business Reg
-  @IsString()
-  @IsOptional()
-  gstNumber?: string;
-
-  @IsString()
-  @IsOptional()
-  taxNumber?: string;
-
-  // Subscription Details
-  @IsString()
-  @IsOptional()
   planId?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ description: 'Business Legal Name' })
   @IsOptional()
-  subscriptionType?: string;
+  @IsString()
+  businessName?: string;
 
-  @Type(() => Number)
-  @IsNumber({}, { message: 'Trial days must be a number.' })
+  @ApiPropertyOptional({ description: 'Business Type', default: 'Retail' })
+  @IsOptional()
+  @IsString()
+  businessType?: string;
+
+  @ApiPropertyOptional({ description: 'Currency Code', default: 'USD' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({ description: 'Country', default: 'USA' })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiPropertyOptional({ description: 'City', default: 'Beaverton' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional({ description: 'Address' })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({ description: 'Phone Number' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ description: 'Timezone', default: 'UTC-8 (PST)' })
+  @IsOptional()
+  @IsString()
+  timezone?: string;
+
+  @ApiPropertyOptional({ description: 'Trial duration in days', default: 14 })
   @IsOptional()
   trialDays?: number;
-
-  @IsString()
-  @IsOptional()
-  startDate?: string;
-
-  @IsString()
-  @IsOptional()
-  expiryDate?: string;
-
-  @IsEnum(StoreStatus)
-  @IsOptional()
-  status?: StoreStatus;
 }

@@ -52,12 +52,11 @@ export default function AdminProductCreatePage() {
 
   const refreshCategories = async () => {
     try {
-      const res = await productsApi.getCategoriesDropdown();
-      setCategoriesList(res || []);
-    } catch {
-      productsApi.getCategories()
-        .then((res) => setCategoriesList(res.flat || []))
-        .catch(() => {});
+      const res = await productsApi.getCategories();
+      setCategoriesList(Array.isArray(res) ? res : []);
+    } catch (err) {
+      toast.error('Failed to load categories');
+      setCategoriesList([]);
     }
   };
 
@@ -68,34 +67,42 @@ export default function AdminProductCreatePage() {
       setLoading(true);
       productsApi.getById(id)
         .then((p: any) => {
-          setTitle(p.title || '');
-          setSku(p.sku || '');
-          setBarcode(p.barcode || '');
-          setCategory(p.category || '');
-          setBrand(p.brand || '');
-          setDescription(p.description || '');
-          setShortDescription(p.shortDescription || '');
-          setPrice(p.price || 0);
-          setOfferPrice(p.offerPrice || 0);
-          setCostPrice(p.costPrice || 0);
-          setStock(p.stock || 0);
-          setMinStock(p.minStock || 5);
-          setWeight(p.weight || 0);
-          if (p.dimensions) {
+          if (!p) {
+            toast.error('Product not found');
+            navigate('/store/products');
+            return;
+          }
+          setTitle(p?.title || '');
+          setSku(p?.sku || '');
+          setBarcode(p?.barcode || '');
+          setCategory(p?.category || '');
+          setBrand(p?.brand || '');
+          setDescription(p?.description || '');
+          setShortDescription(p?.shortDescription || '');
+          setPrice(p?.price || 0);
+          setOfferPrice(p?.offerPrice || 0);
+          setCostPrice(p?.costPrice || 0);
+          setStock(p?.stock || 0);
+          setMinStock(p?.minStock || 5);
+          setWeight(p?.weight || 0);
+          if (p?.dimensions) {
             setLength(p.dimensions.length || 0);
             setWidth(p.dimensions.width || 0);
             setHeight(p.dimensions.height || 0);
           }
-          setTax(p.tax || 0);
-          setMainImage(p.images?.[0] || '');
-          setGalleryImages(p.images?.slice(1).join(', ') || '');
-          setSeoTitle(p.seoTitle || '');
-          setSeoDescription(p.seoDescription || '');
-          setTags(p.tags?.join(', ') || '');
-          setStatus(p.status || (p.isActive ? 'PUBLISHED' : 'DRAFT'));
-          setFeatured(Boolean(p.featured));
+          setTax(p?.tax || 0);
+          setMainImage(p?.images?.[0] || '');
+          setGalleryImages(Array.isArray(p?.images) ? p.images.slice(1).join(', ') : '');
+          setSeoTitle(p?.seoTitle || '');
+          setSeoDescription(p?.seoDescription || '');
+          setTags(Array.isArray(p?.tags) ? p.tags.join(', ') : '');
+          setStatus(p?.status || (p?.isActive ? 'PUBLISHED' : 'DRAFT'));
+          setFeatured(Boolean(p?.featured));
         })
-        .catch(() => toast.error('Failed to load product details'))
+        .catch(() => {
+          toast.error('Failed to load product details');
+          navigate('/store/products');
+        })
         .finally(() => setLoading(false));
     }
   }, [id, isEdit]);

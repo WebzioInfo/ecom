@@ -51,9 +51,10 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const res = await productsApi.getCategories();
-      setCategories(res.flat || []);
-      setTree(res.tree || []);
+      const flatRes = await productsApi.getCategories();
+      const treeRes = await productsApi.getCategoriesTree();
+      setCategories(Array.isArray(flatRes) ? flatRes : []);
+      setTree(Array.isArray(treeRes) ? treeRes : []);
     } catch {
       toast.error('Failed to load category catalog');
     } finally {

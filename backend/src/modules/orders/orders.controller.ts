@@ -1,65 +1,75 @@
 import {
-  Body,
   Controller,
   Get,
-  Param,
-  Patch,
   Post,
+  Body,
+  Patch,
+  Param,
   Query,
-  Request,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto } from './dto/create-order.dto';
+import { ListOrdersDto } from './dto/list-orders.dto';
+import { OrderStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { TenantGuard } from '../../common/guards/tenant.guard';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 
-interface AuthRequest {
-  user: {
-    userId: string;
-    roles: string[];
-  };
-}
-
-@UseGuards(JwtAuthGuard)
+@ApiTags('Orders - Management')
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @Post()
-  async create(
-    @Request() req: AuthRequest,
-    @Body() createOrderDto: CreateOrderDto,
-  ) {
-    return this.ordersService.createOrder(req.user.userId, createOrderDto);
-  }
-
   @Get()
-  async getOrders(@Request() req: AuthRequest, @Query() query: any) {
-    return this.ordersService.getOrders(req.user.userId, req.user.roles || [], query);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('orders.view')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get orders with search, customer, status, and date range filters' })
+  findAll(@Query() query: ListOrdersDto) {
+    return this.ordersService.findAll(query);
   }
 
   @Get(':id')
-  async getOrder(@Request() req: AuthRequest, @Param('id') id: string) {
-    return this.ordersService.getOrderById(req.user.userId, id, req.user.roles || []);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('orders.view')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get order details by ID' })
+  findOne(@Param('id') id: string) {
+    return this.ordersService.findOne(id);
   }
 
   @Patch(':id/status')
-  async updateStatus(@Param('id') id: string, @Body() body: any) {
-    return this.ordersService.updateOrderStatus(id, body);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('orders.update')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update order status enforcing strict state machine transitions' })
+  updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: OrderStatus,
+    @Req() req: any,
+  ) {
+    return this.ordersService.updateStatus(id, status, req.user?.userId);
   }
 
-  @Post(':id/fulfill')
-  async fulfill(@Param('id') id: string, @Body() body: any) {
-    return this.ordersService.fulfillOrder(id, body);
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('orders.cancel')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cancel order and release reserved inventory' })
+  cancelOrder(@Param('id') id: string, @Req() req: any) {
+    return this.ordersService.cancelOrder(id, req.user?.userId);
   }
 
-  @Post(':id/refund')
-  async refund(@Param('id') id: string, @Body() body: any) {
-    return this.ordersService.refundOrder(id, body);
-  }
-
-  @Get(':id/invoice')
-  async getInvoice(@Param('id') id: string) {
-    return this.ordersService.generateInvoiceData(id);
+  @Post(':id/return')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('orders.return')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Request order return' })
+  returnOrder(@Param('id') id: string, @Req() req: any) {
+    return this.ordersService.returnOrder(id, req.user?.userId);
   }
 }

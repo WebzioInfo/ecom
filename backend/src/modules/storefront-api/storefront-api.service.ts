@@ -77,7 +77,7 @@ export class StorefrontApiService {
     // Wait, in Mongo they were not linked to stores in this snippet?
     // Let's assume there is no storeId on products based on schema.
     
-    if (category) where.category = category;
+    if (category) where.category = { slug: category };
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },

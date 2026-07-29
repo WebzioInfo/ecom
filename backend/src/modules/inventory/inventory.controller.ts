@@ -1,47 +1,73 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
-import { CreateWarehouseDto, AdjustStockDto } from './dto/inventory.dto';
+import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { TransferStockDto } from './dto/transfer-stock.dto';
+import { ReserveStockDto } from './dto/reserve-stock.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { TenantGuard } from '../../common/guards/tenant.guard';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 
-@ApiTags('Multi-Warehouse & Inventory')
-@ApiBearerAuth()
+@ApiTags('Inventory - Stock Management')
 @Controller('inventory')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  @Post('warehouses')
-  @Roles('super_admin', 'admin', 'company_admin', 'manager')
-  @ApiOperation({ summary: 'Create a new store warehouse' })
-  createWarehouse(@Body() dto: CreateWarehouseDto) {
-    return this.inventoryService.createWarehouse(dto);
-  }
-
-  @Get('warehouses/store/:storeId')
-  @Roles('super_admin', 'admin', 'company_admin', 'manager', 'staff')
-  @ApiOperation({ summary: 'List all warehouses for a store' })
-  findWarehousesByStore(@Param('storeId') storeId: string) {
-    return this.inventoryService.findWarehousesByStore(storeId);
-  }
-
-  @Post('stock/adjust')
-  @ApiOperation({ summary: 'Adjust stock levels for a product in a warehouse' })
-  adjustStock(@Body() dto: any) {
-    return this.inventoryService.adjustStock(dto);
-  }
-
-  @Get('stock')
-  @ApiOperation({ summary: 'Get overall stock summary and low stock warnings' })
+  @Get('summary')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('inventory.view')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get stock summary & low stock alerts' })
   getStockSummary() {
     return this.inventoryService.getStockSummary();
   }
 
   @Get('movements')
-  @ApiOperation({ summary: 'Get stock movement logs' })
-  getMovements(@Param('productId') productId?: string) {
-    return this.inventoryService.getMovements(productId);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('inventory.view')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get immutable stock movement ledger history' })
+  getMovements(
+    @Query('productId') productId?: string,
+    @Query('warehouseId') warehouseId?: string,
+  ) {
+    return this.inventoryService.getMovements(productId, warehouseId);
+  }
+
+  @Post('adjust')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('inventory.update')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Adjust stock balance (IN, OUT, ADJUSTMENT, DAMAGE)' })
+  adjustStock(@Body() dto: AdjustStockDto, @Req() req: any) {
+    return this.inventoryService.adjustStock(dto, req.user?.userId);
+  }
+
+  @Post('transfer')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('inventory.adjust')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Transfer stock between warehouses' })
+  transferStock(@Body() dto: TransferStockDto, @Req() req: any) {
+    return this.inventoryService.transferStock(dto, req.user?.userId);
+  }
+
+  @Post('reserve')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('inventory.transfer')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reserve stock for order checkout' })
+  reserveStock(@Body() dto: ReserveStockDto) {
+    return this.inventoryService.reserveStock(dto);
   }
 }

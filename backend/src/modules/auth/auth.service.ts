@@ -71,16 +71,16 @@ export class AuthService {
       permissions = ['*'];
       accessibleModules = ['dashboard', 'stores', 'plans', 'support', 'system', 'audit-logs', 'developer', 'users', 'settings'];
     } else if (role === 'STORE_OWNER' || role === 'ADMIN') {
-      permissions = ['store:*'];
-      accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'marketing', 'support', 'staff'];
+      permissions = ['*'];
+      accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'marketing', 'reports', 'settings', 'staff'];
     } else if (role === 'STORE_MANAGER') {
-      permissions = ['store:read', 'store:write'];
-      accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'support'];
+      permissions = ['products.*', 'orders.*', 'customers.*', 'inventory.*', 'reports.*', 'settings.*', 'team.*'];
+      accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'reports', 'settings', 'staff'];
     } else if (role === 'STORE_EMPLOYEE') {
-      permissions = ['store:read'];
-      accessibleModules = ['dashboard', 'products', 'orders'];
+      permissions = ['products.view', 'products.create', 'products.update', 'inventory.view', 'inventory.update', 'orders.view', 'orders.update'];
+      accessibleModules = ['dashboard', 'products', 'orders', 'inventory'];
     } else {
-      permissions = ['storefront:access'];
+      permissions = ['storefront.access'];
       accessibleModules = ['storefront'];
     }
 
@@ -167,24 +167,92 @@ export class AuthService {
     }
 
     const userId = user.id;
-    const payload: JwtPayload = { 
+
+    let tenantPermissions: string[] = [];
+    let tenantRoleName: string = role;
+    let isSuperAdmin = role === 'SUPER_ADMIN';
+    let accessibleModules: string[] = [];
+
+    if (isSuperAdmin) {
+      tenantPermissions = ['*'];
+      accessibleModules = ['dashboard', 'stores', 'plans', 'support', 'system', 'audit-logs', 'developer', 'users', 'settings'];
+    } else if (tenantId !== 'platform') {
+      try {
+        const tenantPrisma = this.prisma.getTenantClient(tenantId);
+        const teamMember = await tenantPrisma.teamMember.findUnique({
+          where: { userId },
+          include: { role: true },
+        });
+
+        if (teamMember) {
+          tenantPermissions = [...(teamMember.role?.permissions || []), ...(teamMember.customPermissions || [])];
+          tenantRoleName = teamMember.role?.name || role;
+        } else {
+          // Fallback if no team member found but registry exists (shouldn't happen with updated provisioning)
+          const meta = this.getRoleMetadata(role);
+          tenantPermissions = meta.permissions;
+        }
+        // Basic module access rule based on permissions (can be refined further on frontend)
+        accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'marketing', 'reports', 'settings', 'staff'];
+      } catch (err) {
+        this.logger.error(`Failed to fetch tenant role for user ${userId} on schema ${tenantId}`);
+        const meta = this.getRoleMetadata(role);
+        tenantPermissions = meta.permissions;
+        accessibleModules = meta.accessibleModules;
+      }
+    } else {
+      const meta = this.getRoleMetadata(role);
+      tenantPermissions = meta.permissions;
+      accessibleModules = meta.accessibleModules;
+    }
+
+    const accessPayload: JwtPayload = { 
       sub: userId, 
       email: user.email, 
-      role,
+      role: tenantRoleName,
+      roles: user.roles,
+      permissions: tenantPermissions,
       tenantId,
-      storeId
+      storeId,
+      type: 'access',
     };
 
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m'),
+    const refreshPayload: JwtPayload = { 
+      sub: userId, 
+      email: user.email, 
+      role: tenantRoleName,
+      tenantId,
+      storeId,
+      type: 'refresh',
+    };
+
+    const accessSecret =
+      process.env.JWT_ACCESS_SECRET ||
+      this.configService.get<string>('jwt.accessSecret') ||
+      this.configService.get<string>('JWT_ACCESS_SECRET') ||
+      'super_secret_access_key_change_in_production';
+
+    const refreshSecret =
+      process.env.JWT_REFRESH_SECRET ||
+      this.configService.get<string>('jwt.refreshSecret') ||
+      this.configService.get<string>('JWT_REFRESH_SECRET') ||
+      'super_secret_refresh_key_change_in_production';
+
+    const accessToken = this.jwtService.sign(accessPayload, {
+      secret: accessSecret,
+      expiresIn:
+        this.configService.get<string>('jwt.accessExpires') ||
+        this.configService.get<string>('JWT_ACCESS_EXPIRES') ||
+        '15m',
     } as JwtSignOptions);
 
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES', '30d'),
+    const refreshToken = this.jwtService.sign(refreshPayload, {
+      secret: refreshSecret,
+      expiresIn:
+        this.configService.get<string>('jwt.refreshExpires') ||
+        this.configService.get<string>('JWT_REFRESH_EXPIRES') ||
+        '30d',
     } as JwtSignOptions);
-
-    const meta = this.getRoleMetadata(role);
 
     return {
       access_token: accessToken,
@@ -192,13 +260,14 @@ export class AuthService {
       token_type: 'Bearer',
       user: {
         id: userId,
+        _id: userId,
         name: user.name,
         email: user.email,
-        role,
+        role: tenantRoleName,
         roles: user.roles,
-        permissions: meta.permissions,
-        accessibleModules: meta.accessibleModules,
-        isSuperAdmin: meta.isSuperAdmin,
+        permissions: tenantPermissions,
+        accessibleModules,
+        isSuperAdmin,
         storeId,
         tenantId,
       },
@@ -207,8 +276,13 @@ export class AuthService {
 
   async refresh(refreshToken: string) {
     try {
+      const refreshSecret =
+        this.configService.get<string>('jwt.refreshSecret') ||
+        this.configService.get<string>('JWT_REFRESH_SECRET') ||
+        'super_secret_refresh_key_change_in_production';
+
       const decoded: any = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: refreshSecret,
       });
       const payload = decoded as JwtPayload;
 
@@ -228,9 +302,18 @@ export class AuthService {
         storeId: payload.storeId,
       };
 
+      const accessSecret =
+        this.configService.get<string>('jwt.accessSecret') ||
+        this.configService.get<string>('JWT_ACCESS_SECRET') ||
+        'super_secret_access_key_change_in_production';
+
       return {
         access_token: this.jwtService.sign(newPayload, {
-          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '15m'),
+          secret: accessSecret,
+          expiresIn:
+            this.configService.get<string>('jwt.accessExpires') ||
+            this.configService.get<string>('JWT_ACCESS_EXPIRES') ||
+            '15m',
         } as JwtSignOptions),
         token_type: 'Bearer',
       };
@@ -242,24 +325,61 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('User not found');
-    const role = user.roles?.[0] || 'USER';
-    const meta = this.getRoleMetadata(role);
+    let role = user.roles?.[0] || 'USER';
 
     const registry = await this.prisma.public.userRegistry.findFirst({
       where: { email: user.email },
     });
 
+    let tenantPermissions: string[] = [];
+    let tenantRoleName: string = role;
+    let isSuperAdmin = role === 'SUPER_ADMIN';
+    let accessibleModules: string[] = [];
+    let tenantId = registry?.schema || 'platform';
+    let storeId = registry?.storeId || '';
+
+    if (isSuperAdmin) {
+      tenantPermissions = ['*'];
+      accessibleModules = ['dashboard', 'stores', 'plans', 'support', 'system', 'audit-logs', 'developer', 'users', 'settings'];
+    } else if (tenantId !== 'platform') {
+      try {
+        const tenantPrisma = this.prisma.getTenantClient(tenantId);
+        const teamMember = await tenantPrisma.teamMember.findUnique({
+          where: { userId },
+          include: { role: true },
+        });
+
+        if (teamMember) {
+          tenantPermissions = [...(teamMember.role?.permissions || []), ...(teamMember.customPermissions || [])];
+          tenantRoleName = teamMember.role?.name || role;
+        } else {
+          const meta = this.getRoleMetadata(role);
+          tenantPermissions = meta.permissions;
+        }
+        accessibleModules = ['dashboard', 'products', 'orders', 'inventory', 'customers', 'marketing', 'reports', 'settings', 'staff'];
+      } catch (err) {
+        const meta = this.getRoleMetadata(role);
+        tenantPermissions = meta.permissions;
+        accessibleModules = meta.accessibleModules;
+      }
+    } else {
+      const meta = this.getRoleMetadata(role);
+      tenantPermissions = meta.permissions;
+      accessibleModules = meta.accessibleModules;
+    }
+
     return {
       id: user.id,
+      _id: user.id,
       name: user.name,
       email: user.email,
-      role,
+      role: tenantRoleName,
       roles: user.roles,
-      permissions: meta.permissions,
-      accessibleModules: meta.accessibleModules,
-      isSuperAdmin: meta.isSuperAdmin,
-      storeId: registry?.storeId || '',
-      tenantId: registry?.schema || 'platform',
+      permissions: tenantPermissions,
+      accessibleModules,
+      isSuperAdmin,
+      storeId,
+      tenantId,
     };
   }
 

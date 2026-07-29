@@ -1,215 +1,220 @@
 import {
-  IsArray,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsNumber,
   IsBoolean,
   IsEnum,
-  IsNotEmpty,
-  IsNumber,
-  IsObject,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
+  IsArray,
   ValidateNested,
+  Min,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ProductStatus } from '@prisma/client';
 
-class ProductDimensionsDto {
-  @IsNumber()
+export class CreateProductMediaDto {
+  @ApiProperty({ description: 'Image or video URL' })
+  @IsString()
+  @IsNotEmpty()
+  url: string;
+
+  @ApiPropertyOptional({ description: 'Alt Text' })
   @IsOptional()
-  length?: number;
+  @IsString()
+  altText?: string;
 
-  @IsNumber()
+  @ApiPropertyOptional({ description: 'Display Position', default: 0 })
   @IsOptional()
-  width?: number;
-
   @IsNumber()
+  position?: number;
+
+  @ApiPropertyOptional({ description: 'Primary Image Flag', default: false })
   @IsOptional()
-  height?: number;
+  @IsBoolean()
+  isPrimary?: boolean;
 }
 
-class ProductAttributeDto {
-  @IsString()
-  @IsNotEmpty()
-  key: string;
-
-  @IsString()
-  @IsNotEmpty()
-  value: string;
-}
-
-class ProductVariantDto {
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
-  sku: string;
-
-  @IsNumber()
-  @Min(0)
-  price: number;
-
-  @IsNumber()
-  @Min(0)
-  stock: number;
-}
-
-export enum ProductStatus {
-  DRAFT = 'DRAFT',
-  PUBLISHED = 'PUBLISHED',
-  ARCHIVED = 'ARCHIVED',
-}
-
-export class CreateProductDto {
-  @ApiProperty({ example: 'iPhone 15 Pro' })
+export class CreateProductVariantDto {
+  @ApiProperty({ description: 'Variant Title (e.g. Red / XL)', example: 'Red / XL' })
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @ApiPropertyOptional({ example: 'SKU-IPHONE15P' })
-  @IsString()
-  @IsOptional()
-  sku?: string;
-
-  @ApiPropertyOptional({ example: '1234567890123' })
-  @IsString()
-  @IsOptional()
-  barcode?: string;
-
-  @ApiProperty({ example: '<p>The latest iPhone</p>' })
+  @ApiProperty({ description: 'Unique Variant SKU', example: 'NIK-AIR-RED-XL' })
   @IsString()
   @IsNotEmpty()
-  description: string;
+  sku: string;
 
-  @ApiPropertyOptional({ example: 'The latest iPhone' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'Barcode / UPC' })
   @IsOptional()
-  shortDescription?: string;
+  @IsString()
+  barcode?: string;
 
-  @ApiProperty({ example: 999.99 })
+  @ApiProperty({ description: 'Regular Price', example: 120.00 })
   @IsNumber()
   @Min(0)
   price: number;
 
-  @ApiPropertyOptional({ example: 800.00 })
-  @IsNumber()
+  @ApiPropertyOptional({ description: 'Discounted Offer Price (Must be less than price)', example: 99.99 })
   @IsOptional()
-  @Min(0)
-  costPrice?: number;
-
-  @ApiPropertyOptional({ example: 899.99 })
   @IsNumber()
-  @IsOptional()
   @Min(0)
   offerPrice?: number;
 
-  @ApiProperty({ example: 100 })
+  @ApiPropertyOptional({ description: 'Cost Price', example: 50.00 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  stock: number;
+  costPrice?: number;
 
-  @ApiPropertyOptional({ example: 10 })
-  @IsNumber()
+  @ApiPropertyOptional({ description: 'Stock Quantity', default: 10 })
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  stock?: number;
+
+  @ApiPropertyOptional({ description: 'Weight in kg' })
+  @IsOptional()
+  @IsNumber()
+  weight?: number;
+
+  @ApiPropertyOptional({ description: 'Variant Active Status', default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'List of AttributeValue IDs', example: ['attr-val-red-id', 'attr-val-xl-id'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attributeValueIds?: string[];
+}
+
+export class CreateProductDto {
+  @ApiProperty({ description: 'Product Title', example: 'Nike Air Max 270' })
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @ApiProperty({ description: 'Unique Product Slug', example: 'nike-air-max-270' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^[a-z0-9-]+$/, { message: 'Slug must be lowercase alphanumeric with hyphens' })
+  slug: string;
+
+  @ApiPropertyOptional({ description: 'Main SKU' })
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @ApiPropertyOptional({ description: 'Barcode / UPC' })
+  @IsOptional()
+  @IsString()
+  barcode?: string;
+
+  @ApiPropertyOptional({ description: 'Short Description' })
+  @IsOptional()
+  @IsString()
+  shortDescription?: string;
+
+  @ApiProperty({ description: 'Full Description' })
+  @IsString()
+  @IsNotEmpty()
+  description: string;
+
+  @ApiProperty({ description: 'Base Price', example: 150.00 })
+  @IsNumber()
+  @Min(0)
+  price: number;
+
+  @ApiPropertyOptional({ description: 'Discounted Offer Price', example: 129.99 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  offerPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Cost Price', example: 60.00 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Total Product Stock', default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  stock?: number;
+
+  @ApiPropertyOptional({ description: 'Minimum Stock Alert Threshold', default: 5 })
+  @IsOptional()
+  @IsNumber()
   @Min(0)
   minStock?: number;
 
-  @ApiPropertyOptional({ example: 0.5 })
-  @IsNumber()
+  @ApiPropertyOptional({ description: 'Weight in kg' })
   @IsOptional()
-  @Min(0)
+  @IsNumber()
   weight?: number;
 
-  @ApiPropertyOptional({ type: ProductDimensionsDto })
-  @IsObject()
+  @ApiPropertyOptional({ description: 'Tax Rate Percentage' })
   @IsOptional()
-  @ValidateNested()
-  @Type(() => ProductDimensionsDto)
-  dimensions?: ProductDimensionsDto;
-
-  @ApiProperty({ example: 'uuid-of-category' })
-  @IsString()
-  @IsNotEmpty()
-  category: string;
-
-  @ApiProperty({ example: 'uuid-of-brand' })
-  @IsString()
-  @IsNotEmpty()
-  brand: string;
-
-  @ApiPropertyOptional({ example: 18 })
   @IsNumber()
-  @IsOptional()
-  gst?: number;
-
-  @ApiPropertyOptional({ example: 18 })
-  @IsNumber()
-  @IsOptional()
   tax?: number;
 
-  @ApiPropertyOptional({ example: ['/uploads/image1.jpg'] })
-  @IsArray()
-  @IsString({ each: true })
+  @ApiPropertyOptional({ description: 'Brand ID' })
   @IsOptional()
-  images?: string[];
-
-  @ApiPropertyOptional({ example: 4.5 })
-  @IsNumber()
-  @IsOptional()
-  @Min(0)
-  @Max(5)
-  rating?: number;
-
-  @ApiPropertyOptional({ example: 10 })
-  @IsNumber()
-  @IsOptional()
-  @Min(0)
-  discount?: number;
-
-  @ApiPropertyOptional({ example: 'Buy iPhone 15 Pro' })
   @IsString()
-  @IsOptional()
-  seoTitle?: string;
+  brandId?: string;
 
-  @ApiPropertyOptional({ example: 'Get the best deals on iPhone 15 Pro' })
+  @ApiPropertyOptional({ description: 'Category ID' })
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  seoDescription?: string;
+  categoryId?: string;
 
-  @ApiPropertyOptional({ example: ['smartphone', 'apple'] })
-  @IsArray()
-  @IsString({ each: true })
+  @ApiPropertyOptional({ enum: ProductStatus, default: ProductStatus.DRAFT })
   @IsOptional()
-  tags?: string[];
-
-  @ApiPropertyOptional({ type: [ProductAttributeDto] })
-  @IsArray()
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => ProductAttributeDto)
-  attributes?: ProductAttributeDto[];
-
-  @ApiPropertyOptional({ type: [ProductVariantDto] })
-  @IsArray()
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => ProductVariantDto)
-  variants?: ProductVariantDto[];
-
-  @ApiPropertyOptional({ enum: ProductStatus, example: ProductStatus.PUBLISHED })
   @IsEnum(ProductStatus)
-  @IsOptional()
   status?: ProductStatus;
 
-  @ApiPropertyOptional({ example: false })
-  @IsBoolean()
+  @ApiPropertyOptional({ description: 'Featured Product Flag', default: false })
   @IsOptional()
+  @IsBoolean()
   featured?: boolean;
 
-  @ApiPropertyOptional({ example: true })
-  @IsBoolean()
+  @ApiPropertyOptional({ description: 'Active Status', default: true })
   @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'SEO Title' })
+  @IsOptional()
+  @IsString()
+  seoTitle?: string;
+
+  @ApiPropertyOptional({ description: 'SEO Description' })
+  @IsOptional()
+  @IsString()
+  seoDescription?: string;
+
+  @ApiPropertyOptional({ description: 'Tags array', example: ['running', 'shoes', 'sport'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @ApiPropertyOptional({ type: [CreateProductMediaDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProductMediaDto)
+  media?: CreateProductMediaDto[];
+
+  @ApiPropertyOptional({ type: [CreateProductVariantDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProductVariantDto)
+  variants?: CreateProductVariantDto[];
 }

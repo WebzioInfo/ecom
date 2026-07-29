@@ -16,9 +16,13 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         secret:
-          configService.get<string>('JWT_ACCESS_SECRET') || 'fallback_secret',
+          process.env.JWT_ACCESS_SECRET ||
+          configService.get<string>('jwt.accessSecret') ||
+          configService.get<string>('JWT_ACCESS_SECRET') ||
+          'super_secret_access_key_change_in_production',
         signOptions: {
-          expiresIn: (configService.get<string>('JWT_ACCESS_EXPIRES') ||
+          expiresIn: (configService.get<string>('jwt.accessExpires') ||
+            configService.get<string>('JWT_ACCESS_EXPIRES') ||
             '15m') as StringValue,
         },
       }),

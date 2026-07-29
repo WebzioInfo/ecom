@@ -1,146 +1,210 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CreateCategoryDto } from './categories/dto/create-category.dto';
+import { UpdateCategoryDto } from './categories/dto/update-category.dto';
+import { CatalogEventService } from './events/catalog-event.service';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(CategoriesService.name);
 
-  async create(dto: CreateCategoryDto) {
-    const slug = dto.slug || dto.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    const existing = await this.prisma.client.category.findFirst({
-      where: { OR: [{ name: dto.name }, { slug }], isDeleted: false },
+  constructor(
+    private prisma: PrismaService,
+    private eventService: CatalogEventService,
+  ) {}
+
+  async create(dto: CreateCategoryDto, userId?: string) {
+    const existing = await this.prisma.tenant.category.findUnique({
+      where: { slug: dto.slug },
     });
     if (existing) {
-      throw new ConflictException('Category with this name or slug already exists');
+      throw new ConflictException(`Category slug '${dto.slug}' already exists`);
     }
-
-    const data: any = {
-      name: dto.name,
-      slug,
-      description: dto.description || null,
-      banner: dto.banner || null,
-      image: dto.image || null,
-      sortOrder: dto.sortOrder || 0,
-      isActive: dto.isActive !== undefined ? dto.isActive : true,
-    };
 
     if (dto.parentId) {
-      data.parent = { connect: { id: dto.parentId } };
+      const parent = await this.prisma.tenant.category.findUnique({
+        where: { id: dto.parentId },
+      });
+      if (!parent) {
+        throw new BadRequestException(`Parent Category #${dto.parentId} does not exist`);
+      }
     }
 
-    return this.prisma.client.category.create({ data });
+    const category = await this.prisma.tenant.category.create({
+      data: {
+        name: dto.name,
+        slug: dto.slug,
+        description: dto.description,
+        image: dto.image,
+        banner: dto.banner,
+        parentId: dto.parentId || null,
+        sortOrder: dto.sortOrder ?? 0,
+        isActive: dto.isActive ?? true,
+      },
+    });
+
+    if (userId) {
+      try {
+        await this.prisma.tenant.auditLog.create({
+          data: {
+            userId,
+            action: 'CATEGORY_CREATE',
+            entity: 'Category',
+            entityId: category.id,
+            changes: { name: category.name, slug: category.slug },
+          },
+        });
+      } catch {}
+    }
+
+    this.eventService.emit('category.created', {
+      categoryId: category.id,
+      name: category.name,
+      slug: category.slug,
+    });
+
+    return category;
   }
 
-  async findAll() {
-    const categories = await this.prisma.client.category.findMany({
+  async findAll(includeInactive = false) {
+    const where: any = { isDeleted: false };
+    if (!includeInactive) where.isActive = true;
+
+    return this.prisma.tenant.category.findMany({
+      where,
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      include: {
+        parent: { select: { id: true, name: true, slug: true } },
+        _count: { select: { products: true, children: true } },
+      },
+    });
+  }
+
+  async findTree() {
+    // Return root categories with recursive children
+    const roots = await this.prisma.tenant.category.findMany({
+      where: { parentId: null, isDeleted: false, isActive: true },
       orderBy: { sortOrder: 'asc' },
+      include: {
+        children: {
+          where: { isDeleted: false, isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            children: {
+              where: { isDeleted: false, isActive: true },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        },
+      },
     });
-
-    const products = await this.prisma.client.product.findMany({
-      where: { isDeleted: false },
-      select: { category: true },
-    });
-
-    const countMap = new Map<string, number>();
-    products.forEach((p: any) => {
-      if (p.category) {
-        countMap.set(p.category.toLowerCase(), (countMap.get(p.category.toLowerCase()) || 0) + 1);
-      }
-    });
-
-    const enriched = categories.map((cat: any) => ({
-      ...cat,
-      productCount: countMap.get((cat.name || '').toLowerCase()) || 0,
-    }));
-
-    const activeCategories = enriched.filter((c: any) => !c.isDeleted);
-
-    // Build hierarchy for tree
-    const map = new Map<string, any>();
-    const tree: any[] = [];
-
-    activeCategories.forEach((cat: any) => {
-      map.set(cat.id, { ...cat, children: [] });
-    });
-
-    activeCategories.forEach((cat: any) => {
-      const node = map.get(cat.id);
-      if (cat.parentId && map.has(cat.parentId)) {
-        map.get(cat.parentId).children.push(node);
-      } else {
-        tree.push(node);
-      }
-    });
-
-    return { flat: enriched, tree };
-  }
-
-  async getDropdown() {
-    const categories = await this.prisma.client.category.findMany({
-      where: { isDeleted: false, isActive: true },
-      select: { id: true, name: true, slug: true, parentId: true },
-      orderBy: { name: 'asc' },
-    });
-    return categories;
+    return roots;
   }
 
   async findOne(id: string) {
-    const category = await this.prisma.client.category.findUnique({
+    const category = await this.prisma.tenant.category.findUnique({
       where: { id },
-      include: { children: true, parent: true },
+      include: {
+        parent: true,
+        children: { where: { isDeleted: false } },
+        _count: { select: { products: true } },
+      },
     });
-    if (!category) {
-      throw new NotFoundException('Category not found');
+    if (!category || category.isDeleted) {
+      throw new NotFoundException(`Category #${id} not found`);
     }
     return category;
   }
 
-  async update(id: string, dto: UpdateCategoryDto) {
-    await this.findOne(id);
-    const data: any = {
-      ...(dto.name && { name: dto.name }),
-      ...(dto.slug && { slug: dto.slug }),
-      ...(dto.description !== undefined && { description: dto.description }),
-      ...(dto.banner !== undefined && { banner: dto.banner }),
-      ...(dto.image !== undefined && { image: dto.image }),
-      ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
-      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-    };
-
-    if (dto.parentId) {
-      data.parent = { connect: { id: dto.parentId } };
-    } else if (dto.parentId === null) {
-      data.parent = { disconnect: true };
-    }
-
-    return this.prisma.client.category.update({
-      where: { id },
-      data,
+  async findBySlug(slug: string) {
+    const category = await this.prisma.tenant.category.findUnique({
+      where: { slug },
+      include: {
+        parent: true,
+        children: { where: { isDeleted: false } },
+        _count: { select: { products: true } },
+      },
     });
+    if (!category || category.isDeleted) {
+      throw new NotFoundException(`Category with slug '${slug}' not found`);
+    }
+    return category;
   }
 
-  async remove(id: string) {
+  async update(id: string, dto: UpdateCategoryDto, userId?: string) {
+    const category = await this.findOne(id);
+
+    if (dto.slug && dto.slug !== category.slug) {
+      const existingSlug = await this.prisma.tenant.category.findUnique({
+        where: { slug: dto.slug },
+      });
+      if (existingSlug) {
+        throw new ConflictException(`Category slug '${dto.slug}' already exists`);
+      }
+    }
+
+    if (dto.parentId) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('A category cannot be its own parent');
+      }
+      const parent = await this.prisma.tenant.category.findUnique({
+        where: { id: dto.parentId },
+      });
+      if (!parent) {
+        throw new BadRequestException(`Parent Category #${dto.parentId} does not exist`);
+      }
+    }
+
+    const updated = await this.prisma.tenant.category.update({
+      where: { id },
+      data: dto,
+    });
+
+    if (userId) {
+      try {
+        await this.prisma.tenant.auditLog.create({
+          data: {
+            userId,
+            action: 'CATEGORY_UPDATE',
+            entity: 'Category',
+            entityId: id,
+            changes: dto as any,
+          },
+        });
+      } catch {}
+    }
+
+    return updated;
+  }
+
+  async remove(id: string, userId?: string) {
     await this.findOne(id);
-    return this.prisma.client.category.update({
+
+    const updated = await this.prisma.tenant.category.update({
       where: { id },
       data: { isDeleted: true, deletedAt: new Date(), isActive: false },
     });
-  }
 
-  async restore(id: string) {
-    await this.findOne(id);
-    return this.prisma.client.category.update({
-      where: { id },
-      data: { isDeleted: false, deletedAt: null, isActive: true },
-    });
-  }
+    if (userId) {
+      try {
+        await this.prisma.tenant.auditLog.create({
+          data: {
+            userId,
+            action: 'CATEGORY_DELETE',
+            entity: 'Category',
+            entityId: id,
+            changes: { name: updated.name },
+          },
+        });
+      } catch {}
+    }
 
-  async permanentDelete(id: string) {
-    await this.findOne(id);
-    return this.prisma.client.category.delete({
-      where: { id },
-    });
+    return { message: `Category #${id} soft deleted successfully` };
   }
 }

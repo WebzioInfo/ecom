@@ -47,11 +47,11 @@ export const productsApi = {
     return data;
   },
   getCategories: async () => {
-    const { data } = await api.get<{ flat: any[]; tree: any[] }>('/categories');
+    const { data } = await api.get<any[]>('/categories');
     return data;
   },
-  getCategoriesDropdown: async () => {
-    const { data } = await api.get<{ id: string; name: string; slug: string; parentId: string | null }[]>('/categories/dropdown');
+  getCategoriesTree: async () => {
+    const { data } = await api.get<any[]>('/categories/tree');
     return data;
   },
   createCategory: async (payload: any) => {

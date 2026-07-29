@@ -24,8 +24,9 @@ export default function AdminProductsPage() {
       if (stockFilter === 'in_stock') params.inStock = 'true';
       if (stockFilter === 'low_stock') params.lowStock = 'true';
       
-      const res = await productsApi.list(params);
-      setProducts(res.data);
+      const res: any = await productsApi.list(params);
+      const dataArr = res?.data || (Array.isArray(res) ? res : []);
+      setProducts(Array.isArray(dataArr) ? dataArr : []);
       setSelectedIds([]);
     } catch (err) {
       toast.error('Failed to load products');

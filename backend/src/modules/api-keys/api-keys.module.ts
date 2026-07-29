@@ -1,15 +1,11 @@
 import { Module } from '@nestjs/common';
-
-import { ApiKeysService } from './api-keys.service';
 import { ApiKeysController } from './api-keys.controller';
-
+import { ApiKeysService } from './api-keys.service';
+import { CatalogEventService } from '../products/events/catalog-event.service';
 
 @Module({
-  imports: [
-
-  ],
   controllers: [ApiKeysController],
-  providers: [ApiKeysService],
+  providers: [ApiKeysService, CatalogEventService],
   exports: [ApiKeysService],
 })
 export class ApiKeysModule {}

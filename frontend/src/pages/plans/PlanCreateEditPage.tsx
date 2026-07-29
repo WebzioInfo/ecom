@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Shield, ArrowLeft, Save, Loader2, Layers, CheckSquare, Sparkles } from 'lucide-react';
+import { Shield, ArrowLeft, Save, Loader2, Layers, CheckSquare, Sparkles, ToggleLeft, ToggleRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { plansApi, Plan } from '../../api/plans.api';
 
@@ -15,8 +15,8 @@ export default function PlanCreateEditPage() {
     name: '',
     code: '',
     description: '',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
+    monthlyPrice: 49,
+    yearlyPrice: 490,
     currency: 'USD',
     trialDays: 14,
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'ARCHIVED',
@@ -49,6 +49,11 @@ export default function PlanCreateEditPage() {
       staffManagement: true,
       auditLogs: false,
       aiFeatures: false,
+      inventoryModule: true,
+      reportsModule: true,
+      automationModule: false,
+      brandingModule: true,
+      exportsModule: true,
     },
     displayOrder: 0,
   });
@@ -62,8 +67,8 @@ export default function PlanCreateEditPage() {
             name: data.name || '',
             code: data.code || '',
             description: data.description || '',
-            monthlyPrice: data.monthlyPrice || 0,
-            yearlyPrice: data.yearlyPrice || 0,
+            monthlyPrice: data.monthlyPrice || 49,
+            yearlyPrice: data.yearlyPrice || 490,
             currency: data.currency || 'USD',
             trialDays: data.trialDays ?? 14,
             status: data.status || 'ACTIVE',
@@ -96,6 +101,11 @@ export default function PlanCreateEditPage() {
               staffManagement: Boolean(data.features?.staffManagement),
               auditLogs: Boolean(data.features?.auditLogs),
               aiFeatures: Boolean(data.features?.aiFeatures),
+              inventoryModule: Boolean((data.features as any)?.inventoryModule ?? true),
+              reportsModule: Boolean((data.features as any)?.reportsModule ?? true),
+              automationModule: Boolean((data.features as any)?.automationModule ?? false),
+              brandingModule: Boolean((data.features as any)?.brandingModule ?? true),
+              exportsModule: Boolean((data.features as any)?.exportsModule ?? true),
             },
             displayOrder: data.displayOrder || 0,
           });
@@ -127,11 +137,10 @@ export default function PlanCreateEditPage() {
     }));
   };
 
-  const handleFeatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
+  const handleFeatureToggle = (key: string) => {
     setFormData((prev) => ({
       ...prev,
-      features: { ...prev.features, [name]: checked },
+      features: { ...prev.features, [key]: !(prev.features as any)[key] },
     }));
   };
 
@@ -141,67 +150,66 @@ export default function PlanCreateEditPage() {
     try {
       if (isEditMode && id) {
         await plansApi.update(id, formData);
-        toast.success('SaaS Plan updated successfully!');
+        toast.success('Subscription plan updated successfully');
       } else {
         await plansApi.create(formData);
-        toast.success('New SaaS Plan created successfully!');
+        toast.success('New subscription plan created successfully');
       }
       navigate('/admin/plans');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save plan');
-    } finally {
-      setSaving(false);
-    }
+    } fontId: '';
+    setSaving(false);
   };
 
-  if (loading) return <div className="text-slate-400 p-8 text-sm">Loading plan configuration...</div>;
+  if (loading) return <div className="text-slate-400 p-8 text-sm">Loading plan configuration editor...</div>;
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-12">
-      {/* HEADER */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-5">
+    <div className="p-6 md:p-8 space-y-8 max-w-[1200px] mx-auto text-slate-900 bg-slate-50/60 min-h-screen">
+      {/* ─── HEADER ────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/admin/plans')}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800 transition-colors"
+            className="p-2.5 bg-white hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 transition-colors shadow-xs"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Layers className="w-6 h-6 text-indigo-400" />
-              {isEditMode ? 'Edit Subscription Plan' : 'Create New Subscription Plan'}
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <Layers className="w-6 h-6 text-purple-600" />
+              {isEditMode ? 'Edit Plan Configuration' : 'Create Subscription Plan'}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Configure pricing, quota limits, and feature toggles for tenant stores.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Set pricing, resource limits, and module permission feature flags.
             </p>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* GENERAL & PRICING INFO */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <h2 className="text-base font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-indigo-400" /> General Information & Pricing Tiers
+      <form onSubmit={handleSubmit} className="space-y-8 text-xs">
+        {/* ─── GENERAL INFO & PRICING ──────────────────────────────────────── */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card space-y-4">
+          <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-purple-600" /> General Details & Pricing Tiers
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Plan Name</label>
+              <label className="block font-bold text-slate-700 mb-1">Plan Name *</label>
               <input
                 required
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="e.g. Growth Pro Tier"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                placeholder="e.g. Enterprise Tier"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-purple-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Plan Code (Unique Code)</label>
+              <label className="block font-bold text-slate-700 mb-1">Plan Code (Unique Identifier) *</label>
               <input
                 required
                 type="text"
@@ -209,26 +217,26 @@ export default function PlanCreateEditPage() {
                 value={formData.code}
                 onChange={handleChange}
                 disabled={isEditMode}
-                placeholder="growth-pro"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono"
+                placeholder="enterprise-tier"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:border-purple-500 disabled:opacity-50"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Plan Description</label>
+              <label className="block font-bold text-slate-700 mb-1">Plan Description</label>
               <textarea
                 required
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows={2}
-                placeholder="Detailed plan description shown on pricing page..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"
+                placeholder="Detailed description shown on public pricing pages..."
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-purple-500 resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Monthly Price ($ USD)</label>
+              <label className="block font-bold text-slate-700 mb-1">Monthly Price ($ USD)</label>
               <input
                 required
                 type="number"
@@ -236,12 +244,12 @@ export default function PlanCreateEditPage() {
                 name="monthlyPrice"
                 value={formData.monthlyPrice}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-extrabold text-slate-900 focus:outline-none focus:border-purple-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Yearly Price ($ USD)</label>
+              <label className="block font-bold text-slate-700 mb-1">Yearly Price ($ USD)</label>
               <input
                 required
                 type="number"
@@ -249,12 +257,12 @@ export default function PlanCreateEditPage() {
                 name="yearlyPrice"
                 value={formData.yearlyPrice}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-extrabold text-slate-900 focus:outline-none focus:border-purple-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Trial Period Days</label>
+              <label className="block font-bold text-slate-700 mb-1">Free Trial Days</label>
               <input
                 required
                 type="number"
@@ -262,17 +270,17 @@ export default function PlanCreateEditPage() {
                 name="trialDays"
                 value={formData.trialDays}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-purple-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Plan Status</label>
+              <label className="block font-bold text-slate-700 mb-1">Plan Status</label>
               <select
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-bold"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-purple-500"
               >
                 <option value="ACTIVE">ACTIVE</option>
                 <option value="INACTIVE">INACTIVE</option>
@@ -280,41 +288,18 @@ export default function PlanCreateEditPage() {
               </select>
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-6 pt-3">
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                name="popularBadge"
-                checked={formData.popularBadge}
-                onChange={handleChange}
-                className="rounded border-slate-800 text-indigo-600 focus:ring-indigo-500"
-              />
-              Display "Popular" Badge
-            </label>
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                name="recommendedBadge"
-                checked={formData.recommendedBadge}
-                onChange={handleChange}
-                className="rounded border-slate-800 text-indigo-600 focus:ring-indigo-500"
-              />
-              Display "Recommended" Badge
-            </label>
-          </div>
         </div>
 
-        {/* RESOURCE LIMITS */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <h2 className="text-base font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
-            <CheckSquare className="w-4 h-4 text-emerald-400" /> Quotas & Resource Limitations
+        {/* ─── RESOURCE LIMITS & QUOTAS ────────────────────────────────────── */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card space-y-4">
+          <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+            <CheckSquare className="w-5 h-5 text-emerald-600" /> Allocated Quotas & Store Limits
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {Object.keys(formData.limits).map((key) => (
               <div key={key}>
-                <label className="block text-xs font-semibold text-slate-400 mb-1 capitalize">
+                <label className="block font-bold text-slate-700 mb-1 capitalize">
                   {key.replace(/max/g, '').replace(/([A-Z])/g, ' $1').trim()}
                 </label>
                 <input
@@ -324,54 +309,57 @@ export default function PlanCreateEditPage() {
                   name={key}
                   value={(formData.limits as any)[key]}
                   onChange={handleLimitChange}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:border-purple-500"
                 />
               </div>
             ))}
           </div>
         </div>
 
-        {/* FEATURE TOGGLES */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <h2 className="text-base font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-purple-400" /> Feature Access Toggles
+        {/* ─── FEATURE FLAGS TOGGLES ───────────────────────────────────────── */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-card space-y-4">
+          <h2 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-purple-600" /> Module Permission Feature Flags
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-6">
-            {Object.keys(formData.features).map((key) => (
-              <label
-                key={key}
-                className="flex items-center gap-3 text-xs text-slate-300 hover:text-white cursor-pointer transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  name={key}
-                  checked={(formData.features as any)[key]}
-                  onChange={handleFeatureChange}
-                  className="w-4 h-4 rounded border-slate-800 text-indigo-600 focus:ring-indigo-500 bg-slate-950"
-                />
-                <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-              </label>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Object.keys(formData.features).map((key) => {
+              const enabled = (formData.features as any)[key];
+              return (
+                <div
+                  key={key}
+                  onClick={() => handleFeatureToggle(key)}
+                  className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                    enabled ? 'bg-purple-50/60 border-purple-200 text-purple-900' : 'bg-slate-50 border-slate-200 text-slate-500'
+                  }`}
+                >
+                  <span className="font-bold capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                  <span className={`w-8 h-4 rounded-full transition-colors relative ${enabled ? 'bg-purple-600' : 'bg-slate-300'}`}>
+                    <span className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all ${enabled ? 'right-0.5' : 'left-0.5'}`} />
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* FORM ACTIONS */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+        {/* ─── FORM ACTIONS ────────────────────────────────────────────────── */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200/80">
           <button
             type="button"
             onClick={() => navigate('/admin/plans')}
-            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold rounded-xl transition-colors text-sm border border-slate-800"
+            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
           >
             Cancel
           </button>
+
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all text-sm"
+            className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-xs transition-all"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {isEditMode ? 'Save Changes' : 'Create SaaS Plan'}
+            {isEditMode ? 'Save Plan Configuration' : 'Create Subscription Plan'}
           </button>
         </div>
       </form>

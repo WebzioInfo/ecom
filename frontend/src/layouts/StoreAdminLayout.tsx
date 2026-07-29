@@ -62,20 +62,20 @@ export function StoreAdminLayout() {
   const navItems = rawNavItems.filter((item) => accessible.includes(item.module));
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       {/* STORE ADMIN SIDEBAR */}
-      <aside className="w-64 bg-slate-900/80 border-r border-slate-800 flex flex-col justify-between backdrop-blur-md select-none">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between select-none">
         <div>
           {/* BRANDING HEADER */}
-          <div className="h-16 flex items-center px-5 border-b border-slate-800/80 justify-between">
+          <div className="h-16 flex items-center px-5 border-b border-slate-100 justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-sm">
                 <Zap className="w-5 h-5" />
               </div>
               <div>
-                <span className="font-extrabold tracking-tight text-white text-base">Commerce Pro</span>
-                <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 uppercase">
-                  Tenant Portal
+                <span className="font-extrabold tracking-tight text-slate-900 text-base">Commerce Pro</span>
+                <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase">
+                  Tenant
                 </span>
               </div>
             </div>
@@ -83,16 +83,16 @@ export function StoreAdminLayout() {
 
           {/* STORE CONTEXT DISPLAY */}
           <div className="p-3">
-            <div className="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-left">
+            <div className="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-left">
               <div className="flex items-center gap-2.5 overflow-hidden">
-                <div className="w-7 h-7 rounded bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-xs font-extrabold">
+                <div className="w-7 h-7 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-extrabold">
                   {activeStore ? activeStore.name[0].toUpperCase() : 'S'}
                 </div>
                 <div className="truncate">
-                  <p className="text-xs font-semibold text-slate-200 truncate">
+                  <p className="text-xs font-semibold text-slate-900 truncate">
                     {activeStore ? activeStore.name : 'Store Workspace'}
                   </p>
-                  <p className="text-[10px] text-slate-400 truncate font-mono">
+                  <p className="text-[10px] text-slate-500 truncate font-mono">
                     {activeStore ? activeStore.slug : 'electronics-hub'}
                   </p>
                 </div>
@@ -115,8 +115,8 @@ export function StoreAdminLayout() {
                   to={item.path}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-semibold'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -128,20 +128,20 @@ export function StoreAdminLayout() {
         </div>
 
         {/* USER PROFILE & LOGOUT */}
-        <div className="p-4 border-t border-slate-800/80 space-y-3">
+        <div className="p-4 border-t border-slate-200 space-y-3">
           <div className="flex items-center justify-between">
             <div className="truncate">
-              <p className="text-xs font-bold text-slate-200 truncate">{user?.name || 'Store User'}</p>
-              <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+              <p className="text-xs font-bold text-slate-900 truncate">{user?.name || 'Store User'}</p>
+              <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
             </div>
-            <span className="text-[9px] font-extrabold bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded uppercase">
+            <span className="text-[9px] font-extrabold bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded uppercase">
               {user?.role || 'STORE_OWNER'}
             </span>
           </div>
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 border border-rose-900/30 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 border border-rose-100 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" /> Sign Out
           </button>
@@ -149,7 +149,7 @@ export function StoreAdminLayout() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 overflow-y-auto bg-slate-950 p-6 md:p-8">
+      <main className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8">
         <Outlet />
       </main>
     </div>

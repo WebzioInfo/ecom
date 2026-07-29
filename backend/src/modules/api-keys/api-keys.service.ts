@@ -1,104 +1,118 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, ApiKey } from '@prisma/public-client';
 import { CreateApiKeyDto, UpdateApiKeyDto } from './dto/api-key.dto';
+import { CatalogEventService } from '../products/events/catalog-event.service';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class ApiKeysService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(ApiKeysService.name);
 
-  async create(dto: CreateApiKeyDto) {
-    const rawKey = `wbx_live_${crypto.randomBytes(16).toString('hex')}`;
-    const rawSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
-    const secretHash = crypto
-      .createHash('sha256')
-      .update(rawSecret)
-      .digest('hex');
+  constructor(
+    private prisma: PrismaService,
+    private eventService: CatalogEventService,
+  ) {}
 
-    const apiKey = await this.prisma.client.apiKey.create({
+  async create(dto: CreateApiKeyDto, userId?: string) {
+    const rawKey = `pk_live_${crypto.randomBytes(16).toString('hex')}`;
+    const rawSecret = `sk_live_${crypto.randomBytes(24).toString('hex')}`;
+    const secretHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
+
+    const apiKey = await this.prisma.public.apiKey.create({
       data: {
         storeId: dto.storeId,
-        name: dto.name,
+        name: dto.name || 'Store API Key',
         key: rawKey,
         secretHash,
         webhookSecret: rawSecret,
-        permissions: dto.permissions || ['read:products', 'write:orders'],
-        allowedOrigins: dto.allowedOrigins || ['*'],
-        rateLimitPerMinute: dto.rateLimitPerMinute || 1000,
-      }
+        permissions: dto.permissions || ['*'],
+      },
     });
+
+    this.eventService.emit('apikey.created' as any, { storeId: dto.storeId, apiKeyId: apiKey.id, publicKey: rawKey });
 
     return {
       id: apiKey.id,
+      storeId: apiKey.storeId,
       name: apiKey.name,
-      apiKey: rawKey,
+      publicKey: rawKey,
       secretKey: rawSecret,
-      webhookSecret: rawSecret,
-      permissions: apiKey.permissions,
       createdAt: apiKey.createdAt,
     };
   }
 
-  async findByStore(storeId: string) {
-    const keys = await this.prisma.client.apiKey.findMany({
-      where: { storeId },
-      orderBy: { createdAt: 'desc' }
+  async rotateKeys(storeId: string, userId?: string) {
+    const store = await this.prisma.public.store.findUnique({ where: { id: storeId } });
+    if (!store) throw new NotFoundException(`Store #${storeId} not found.`);
+
+    // Deactivate / Remove old keys
+    await this.prisma.public.apiKey.deleteMany({ where: { storeId } });
+
+    // Generate new key pair
+    const newPublicKey = `pk_live_${crypto.randomBytes(16).toString('hex')}`;
+    const newSecretKey = `sk_live_${crypto.randomBytes(24).toString('hex')}`;
+    const secretHash = crypto.createHash('sha256').update(newSecretKey).digest('hex');
+
+    const apiKey = await this.prisma.public.apiKey.create({
+      data: {
+        storeId,
+        name: `${store.name} Rotated Key`,
+        key: newPublicKey,
+        secretHash,
+        webhookSecret: newSecretKey,
+        permissions: ['*'],
+      },
     });
-    // Remove secretHash before returning
-    return keys.map((k: any) => { const { secretHash, ...rest } = k; return rest; });
+
+    this.eventService.emit('apikey.rotated' as any, { storeId, publicKey: newPublicKey });
+
+    return {
+      id: apiKey.id,
+      storeId,
+      publicKey: newPublicKey,
+      secretKey: newSecretKey,
+      message: 'API Key pair successfully rotated.',
+    };
+  }
+
+  async findByStore(storeId: string) {
+    return this.prisma.public.apiKey.findMany({
+      where: { storeId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        storeId: true,
+        name: true,
+        key: true,
+        permissions: true,
+        createdAt: true,
+      },
+    });
   }
 
   async findByKey(key: string) {
-    return this.prisma.client.apiKey.findFirst({
-      where: { key, isActive: true }
+    return this.prisma.public.apiKey.findFirst({
+      where: { key },
     });
   }
 
   async update(id: string, dto: UpdateApiKeyDto) {
     try {
-      const key = await this.prisma.client.apiKey.update({
+      return await this.prisma.public.apiKey.update({
         where: { id },
-        data: dto as any
+        data: dto as any,
       });
-      const { secretHash, ...rest } = key;
-      return rest;
     } catch {
-      throw new NotFoundException(`API key #${id} not found`);
+      throw new NotFoundException(`API Key #${id} not found.`);
     }
   }
 
-  async revoke(id: string) {
-    try {
-      await this.prisma.client.apiKey.update({
-        where: { id },
-        data: { isActive: false }
-      });
-      return { message: 'API key revoked successfully' };
-    } catch {
-      throw new NotFoundException(`API key #${id} not found`);
-    }
-  }
+  async revoke(id: string, userId?: string) {
+    const key = await this.prisma.public.apiKey.findUnique({ where: { id } });
+    if (!key) throw new NotFoundException(`API Key #${id} not found.`);
 
-  async regenerateSecret(id: string) {
-    const newSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
-    const secretHash = crypto
-      .createHash('sha256')
-      .update(newSecret)
-      .digest('hex');
-      
-    try {
-      const key = await this.prisma.client.apiKey.update({
-        where: { id },
-        data: { secretHash, webhookSecret: newSecret }
-      });
-      return {
-        id: key.id,
-        webhookSecret: newSecret,
-        message: 'Secret key regenerated successfully',
-      };
-    } catch {
-      throw new NotFoundException(`API key #${id} not found`);
-    }
+    await this.prisma.public.apiKey.delete({ where: { id } });
+
+    return { message: 'API Key revoked successfully.' };
   }
 }

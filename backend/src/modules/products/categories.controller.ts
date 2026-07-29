@@ -1,72 +1,86 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  Param,
-  Patch,
   Post,
-  Put,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
+import { CreateCategoryDto } from './categories/dto/create-category.dto';
+import { UpdateCategoryDto } from './categories/dto/update-category.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { TenantGuard } from '../../common/guards/tenant.guard';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 
+@ApiTags('Catalog - Categories')
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
-  @Get()
-  async findAll() {
-    return this.categoriesService.findAll();
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('categories:manage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new category' })
+  create(@Body() dto: CreateCategoryDto, @Req() req: any) {
+    return this.categoriesService.create(dto, req.user?.userId);
   }
 
-  @Get('dropdown')
-  async getDropdown() {
-    return this.categoriesService.getDropdown();
+  @Get()
+  @UseGuards(TenantGuard)
+  @ApiOperation({ summary: 'Get all categories (flat list)' })
+  findAll(@Query('includeInactive') includeInactive?: string) {
+    return this.categoriesService.findAll(includeInactive === 'true');
+  }
+
+  @Get('tree')
+  @UseGuards(TenantGuard)
+  @ApiOperation({ summary: 'Get category hierarchy tree' })
+  findTree() {
+    return this.categoriesService.findTree();
+  }
+
+  @Get('slug/:slug')
+  @UseGuards(TenantGuard)
+  @ApiOperation({ summary: 'Get category by slug' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.categoriesService.findBySlug(slug);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  @UseGuards(TenantGuard)
+  @ApiOperation({ summary: 'Get category by ID' })
+  findOne(@Param('id') id: string) {
     return this.categoriesService.findOne(id);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post()
-  async create(@Body() dto: CreateCategoryDto) {
-    return this.categoriesService.create(dto);
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
-    return this.categoriesService.update(id, dto);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('categories:manage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update category' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCategoryDto,
+    @Req() req: any,
+  ) {
+    return this.categoriesService.update(id, dto, req.user?.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Put(':id')
-  async replace(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
-    return this.categoriesService.update(id, dto);
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.categoriesService.remove(id);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Delete(':id/permanent')
-  async permanentDelete(@Param('id') id: string) {
-    return this.categoriesService.permanentDelete(id);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/restore')
-  async restore(@Param('id') id: string) {
-    return this.categoriesService.restore(id);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, TenantGuard)
+  @Permissions('categories:manage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Soft delete category' })
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.categoriesService.remove(id, req.user?.userId);
   }
 }
-

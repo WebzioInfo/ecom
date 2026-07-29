@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, Plan } from '@prisma/public-client';
+import { Plan } from '@prisma/public-client';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 
@@ -13,22 +13,22 @@ export class PlansService {
   constructor(private prisma: PrismaService) {}
 
   async create(createPlanDto: CreatePlanDto): Promise<Plan> {
-    const existingPlan = await this.prisma.client.plan.findUnique({
+    const existingPlan = await this.prisma.public.plan.findUnique({
       where: { code: createPlanDto.code },
     });
     if (existingPlan) {
       throw new ConflictException(`Plan with code '${createPlanDto.code}' already exists`);
     }
-    return this.prisma.client.plan.create({ data: createPlanDto as any });
+    return this.prisma.public.plan.create({ data: createPlanDto as any });
   }
 
   async findAll(query: any = {}): Promise<any[]> {
-    const plans = await this.prisma.client.plan.findMany({
+    const plans = await this.prisma.public.plan.findMany({
       where: query,
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
     });
 
-    const stores = await this.prisma.client.store.findMany({
+    const stores = await this.prisma.public.store.findMany({
       select: { subscription: true },
     });
 
@@ -46,7 +46,7 @@ export class PlansService {
   }
 
   async findOne(id: string): Promise<Plan> {
-    const plan = await this.prisma.client.plan.findUnique({ where: { id } });
+    const plan = await this.prisma.public.plan.findUnique({ where: { id } });
     if (!plan) {
       throw new NotFoundException(`Plan with ID #${id} not found`);
     }
@@ -55,7 +55,7 @@ export class PlansService {
 
   async update(id: string, updatePlanDto: UpdatePlanDto): Promise<Plan> {
     if (updatePlanDto.code) {
-      const existingPlan = await this.prisma.client.plan.findFirst({
+      const existingPlan = await this.prisma.public.plan.findFirst({
         where: { code: updatePlanDto.code, id: { not: id } },
       });
       if (existingPlan) {
@@ -63,7 +63,7 @@ export class PlansService {
       }
     }
     try {
-      return await this.prisma.client.plan.update({
+      return await this.prisma.public.plan.update({
         where: { id },
         data: updatePlanDto as any,
       });
@@ -77,7 +77,7 @@ export class PlansService {
     const newCode = `${original.code}-copy-${Date.now().toString().slice(-4)}`;
     const newName = `${original.name} (Copy)`;
 
-    return this.prisma.client.plan.create({
+    return this.prisma.public.plan.create({
       data: {
         name: newName,
         code: newCode,
@@ -99,11 +99,11 @@ export class PlansService {
   async remove(id: string): Promise<{ message: string }> {
     const plan = await this.findOne(id);
     if (plan.status === 'ARCHIVED') {
-      await this.prisma.client.plan.delete({ where: { id } });
+      await this.prisma.public.plan.delete({ where: { id } });
       return { message: `Plan #${id} deleted permanently` };
     }
 
-    await this.prisma.client.plan.update({
+    await this.prisma.public.plan.update({
       where: { id },
       data: { status: 'ARCHIVED' },
     });
@@ -112,7 +112,7 @@ export class PlansService {
 
   async setStatus(id: string, status: string): Promise<Plan> {
     try {
-      return await this.prisma.client.plan.update({
+      return await this.prisma.public.plan.update({
         where: { id },
         data: { status },
       });

@@ -47,15 +47,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const profile = await authApi.me();
       const user: AuthUser = {
-        id: profile._id || profile.id || '',
+        id: profile.id || profile._id || '',
         email: profile.email,
         name: profile.name,
-        roles: profile.roles || ['admin'],
-        role: profile.role,
+        roles: profile.roles || ['USER'],
+        role: profile.role || profile.roles?.[0] || 'USER',
         permissions: profile.permissions || [],
         accessibleModules: profile.accessibleModules || ['dashboard'],
-        isSuperAdmin: profile.isSuperAdmin,
-        storeId: profile.storeId,
+        isSuperAdmin: profile.isSuperAdmin || false,
+        storeId: profile.storeId || '',
       };
       set({
         user,

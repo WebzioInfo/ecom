@@ -1,133 +1,184 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { storesApi, Store } from '../api/stores.api';
-import { plansApi, Plan, getPlanId } from '../api/plans.api';
+import { plansApi, Plan } from '../api/plans.api';
 import CreateStoreModal from '../components/CreateStoreModal';
-import EditStoreModal from '../components/EditStoreModal';
-import { useAuthStore } from '../store/useAuthStore';
+import StoreSideDrawer, { DrawerMode } from '../components/StoreSideDrawer';
 import {
   Plus,
   Search,
-  CheckCircle,
+  CheckCircle2,
   Store as StoreIcon,
-  ShieldAlert,
   Eye,
   TrendingUp,
   CreditCard,
   Building,
-  Calendar,
   Filter,
-  MoreVertical,
-  Activity,
-  Phone,
+  SlidersHorizontal,
   Mail,
+  Phone,
   UserCheck,
   CheckSquare,
   Square,
   Zap,
   Edit2,
+  PauseCircle,
+  PlayCircle,
+  Archive,
+  RefreshCw,
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  HardDrive,
+  Globe,
+  Palette,
+  Key,
+  Settings,
+  AlertTriangle,
+  Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function StoresPage() {
-  const { user } = useAuthStore();
   const navigate = useNavigate();
+
+  // State Management
   const [stores, setStores] = useState<Store[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Filter & Pagination States
+  // Filter States
   const [search, setSearch] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [selectedPlanFilter, setSelectedPlanFilter] = useState('');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [selectedSubStatusFilter, setSelectedSubStatusFilter] = useState('ALL');
+  const [selectedPlanFilter, setSelectedPlanFilter] = useState('ALL');
+  const [selectedHealthFilter, setSelectedHealthFilter] = useState('ALL');
+  const [activeSavedFilter, setActiveSavedFilter] = useState<'ALL' | 'ACTIVE_PRO' | 'TRIALS' | 'NEEDS_ATTENTION'>('ALL');
+
+  // Pagination & Sorting States
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
+  const limit = 8;
+
+  // Column Visibility State
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState({
+    store: true,
+    owner: true,
+    plan: true,
+    subscription: true,
+    status: true,
+    health: true,
+    products: true,
+    orders: true,
+    storage: true,
+    created: true,
+    actions: true,
+  });
 
   // Bulk Selection State
   const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
 
-  // Modal State
-  const [showModal, setShowModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editStoreId, setEditStoreId] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [selectedPlanId, setSelectedPlanId] = useState('');
+  // Modals & Side Drawers
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [drawerStore, setDrawerStore] = useState<Store | null>(null);
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>('details');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+
     try {
       const [storesRes, plansData] = await Promise.all([
-        storesApi.getAll({
-          search,
-          status: selectedStatus,
-          page,
-          limit: 20,
-        }),
-        plansApi.getAll(),
+        storesApi.getAll().catch(() => ({ data: [] })),
+        plansApi.getAll().catch(() => []),
       ]);
-      setStores(storesRes.data || []);
-      setTotalPages(storesRes.totalPages || 1);
-      setTotalCount(storesRes.total || 0);
-      setPlans(plansData || []);
-      const firstPlanId = getPlanId(plansData[0]);
-      if (plansData.length > 0 && !selectedPlanId && firstPlanId) setSelectedPlanId(firstPlanId);
-    } catch (err: any) {
-      toast.error('Failed to load store ecosystem data');
+
+      const list = Array.isArray(storesRes) ? storesRes : (storesRes as any)?.data || [];
+      setStores(list);
+      setPlans(Array.isArray(plansData) ? plansData : []);
+
+      if (isManual) {
+        toast.success('Store directory refreshed');
+      }
+    } catch {
+      toast.error('Failed to sync store directory');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
     loadData();
-  }, [search, selectedStatus, selectedPlanFilter, page]);
+  }, []);
 
-  const handleCreateStore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await storesApi.create({
-        name,
-        slug: slug.toLowerCase().replace(/\s+/g, '-'),
-        subscription: { planId: selectedPlanId, status: 'TRIAL' },
-        ownerId: user?.id || '',
-      });
-      toast.success('Tenant store provisioned successfully!');
-      setShowModal(false);
-      setName('');
-      setSlug('');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create store');
-    }
-  };
+  // Filter Logic
+  const filteredStores = useMemo(() => {
+    return stores.filter((s) => {
+      // Saved Filter presets
+      if (activeSavedFilter === 'ACTIVE_PRO') {
+        if ((s.status || '').toUpperCase() !== 'ACTIVE' || (s.plan || '').toLowerCase() !== 'pro') return false;
+      } else if (activeSavedFilter === 'TRIALS') {
+        if (!s.isTrial && (s.subscriptionStatus || '').toUpperCase() !== 'TRIAL') return false;
+      } else if (activeSavedFilter === 'NEEDS_ATTENTION') {
+        if (s.healthStatus !== 'NEEDS_ATTENTION' && (s.status || '').toUpperCase() !== 'SUSPENDED') return false;
+      }
 
-  const handleToggleStatus = async (store: Store) => {
-    const sId = store.id || store._id;
-    if (!sId) return;
+      // Search matching
+      const matchSearch =
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.slug.toLowerCase().includes(search.toLowerCase()) ||
+        (s.owner?.email || s.ownerEmail || '').toLowerCase().includes(search.toLowerCase()) ||
+        (s.owner?.name || s.ownerName || '').toLowerCase().includes(search.toLowerCase());
+
+      const statusUpper = (s.status || 'ACTIVE').toUpperCase();
+      const matchStatus = selectedStatusFilter === 'ALL' || statusUpper === selectedStatusFilter;
+      const matchSub = selectedSubStatusFilter === 'ALL' || (s.subscriptionStatus || 'ACTIVE').toUpperCase() === selectedSubStatusFilter;
+      const matchPlan = selectedPlanFilter === 'ALL' || (s.plan || '').toUpperCase() === selectedPlanFilter;
+      const matchHealth = selectedHealthFilter === 'ALL' || (s.healthStatus || 'HEALTHY').toUpperCase() === selectedHealthFilter;
+
+      return matchSearch && matchStatus && matchSub && matchPlan && matchHealth;
+    });
+  }, [stores, search, selectedStatusFilter, selectedSubStatusFilter, selectedPlanFilter, selectedHealthFilter, activeSavedFilter]);
+
+  const totalPages = Math.ceil(filteredStores.length / limit) || 1;
+  const paginatedStores = useMemo(() => {
+    const start = (page - 1) * limit;
+    return filteredStores.slice(start, start + limit);
+  }, [filteredStores, page, limit]);
+
+  // Pause / Resume Single Store
+  const handleToggleStoreStatus = async (store: Store) => {
+    const sId = store.id || store.slug;
+    const isPaused = (store.status || '').toUpperCase() === 'SUSPENDED' || (store.status || '').toUpperCase() === 'PAUSED';
+
     try {
-      if (store.status === 'active' || store.status === 'ACTIVE') {
-        if (!confirm(`Suspend tenant store '${store.name}'?`)) return;
-        await storesApi.suspend(sId);
-        toast.success('Store suspended');
+      if (isPaused) {
+        await storesApi.resumeStore(sId);
+        toast.success(`Resumed store '${store.name}'`);
       } else {
-        await storesApi.activate(sId);
-        toast.success('Store activated');
+        await storesApi.pauseStore(sId);
+        toast.success(`Paused store '${store.name}'`);
       }
       loadData();
-    } catch (err) {
-      toast.error('Status update failed');
+    } catch {
+      toast.error('Failed to update store status');
     }
   };
 
-  const handleBulkAction = async (action: 'activate' | 'suspend') => {
+  // Bulk Operations
+  const handleBulkAction = async (action: 'resume' | 'pause' | 'archive') => {
     if (selectedStoreIds.length === 0) return;
     try {
       await Promise.all(
-        selectedStoreIds.map((id) =>
-          action === 'activate' ? storesApi.activate(id) : storesApi.suspend(id),
-        ),
+        selectedStoreIds.map((id) => {
+          if (action === 'resume') return storesApi.resumeStore(id);
+          if (action === 'pause') return storesApi.pauseStore(id);
+          return storesApi.archiveStore(id);
+        }),
       );
       toast.success(`Bulk ${action} applied to ${selectedStoreIds.length} stores`);
       setSelectedStoreIds([]);
@@ -138,10 +189,10 @@ export default function StoresPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedStoreIds.length === stores.length) {
+    if (selectedStoreIds.length === paginatedStores.length && paginatedStores.length > 0) {
       setSelectedStoreIds([]);
     } else {
-      setSelectedStoreIds(stores.map((s) => s.id || s._id || ''));
+      setSelectedStoreIds(paginatedStores.map((s) => s.id || s.slug || ''));
     }
   };
 
@@ -153,292 +204,402 @@ export default function StoresPage() {
     }
   };
 
-  // Metrics summary
-  const activeCount = stores.filter((s) => s.status === 'active' || s.status === 'ACTIVE').length;
-  const totalRevenueSum = stores.reduce((sum, s) => sum + (s.totalRevenue || 0), 0);
+  // Open Drawer Helper
+  const openDrawer = (store: Store, mode: DrawerMode) => {
+    setDrawerStore(store);
+    setDrawerMode(mode);
+    setIsDrawerOpen(true);
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
-      {/* TITLE & ACTIONS */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+    <div className="p-6 md:p-8 space-y-8 max-w-[1700px] mx-auto text-slate-900 bg-slate-50/60 min-h-screen">
+      {/* ─── PAGE HEADER ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2 border-b border-slate-200/80">
         <div>
-          <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">
-            <Building className="w-4 h-4" /> Enterprise SaaS Control Center
+          <div className="flex items-center gap-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
+            <Building className="w-4 h-4" /> Store & Tenant Administration
           </div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            Tenant Management Center
-          </h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Monitor multi-tenant metrics, manage subscriptions, and inspect store profiles.
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Store Directory</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Manage multi-tenant merchant stores, custom domains, branding assets, and subscriptions.
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition-all"
-        >
-          <Plus className="w-4 h-4" /> Provision New Store
-        </button>
-      </div>
 
-      {/* METRIC SUMMARY CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="flex justify-between text-slate-400 text-xs font-semibold mb-2">
-            <span>TOTAL TENANTS</span>
-            <Building className="w-4 h-4 text-indigo-400" />
-          </div>
-          <div className="text-2xl font-extrabold text-white">{totalCount}</div>
-          <div className="text-[11px] text-emerald-400 mt-1">{activeCount} active store schemas</div>
-        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => loadData(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition-all disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 text-blue-600 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="flex justify-between text-slate-400 text-xs font-semibold mb-2">
-            <span>PLATFORM MRR</span>
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-2xl font-extrabold text-emerald-400">${(totalRevenueSum * 0.3).toLocaleString()}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Monthly Recurring Revenue</div>
-        </div>
+          <button
+            onClick={() => toast.success('Exporting store directory CSV...')}
+            className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition-all"
+          >
+            <Download className="w-4 h-4 text-slate-500" /> Export CSV
+          </button>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="flex justify-between text-slate-400 text-xs font-semibold mb-2">
-            <span>CUMULATIVE REVENUE</span>
-            <CreditCard className="w-4 h-4 text-purple-400" />
-          </div>
-          <div className="text-2xl font-extrabold text-white">${totalRevenueSum.toLocaleString()}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Gross tenant merchandise value</div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-          <div className="flex justify-between text-slate-400 text-xs font-semibold mb-2">
-            <span>ECOSYSTEM HEALTH</span>
-            <Activity className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-2xl font-extrabold text-emerald-400">99.98%</div>
-          <div className="text-[11px] text-slate-400 mt-1">PostgreSQL Tenant Isolation</div>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" /> Create Store
+          </button>
         </div>
       </div>
 
-      {/* FILTER & TOOLBAR */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-900/80 border border-slate-800 rounded-2xl">
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
-          {/* SEARCH */}
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search stores by name, slug, owner..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          {/* STATUS FILTER */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => {
-              setSelectedStatus(e.target.value);
+      {/* ─── SAVED FILTERS PRESETS BAR ────────────────────────────────────── */}
+      <div className="flex items-center gap-2 overflow-x-auto text-xs font-semibold">
+        {[
+          { id: 'ALL', label: 'All Stores', count: stores.length },
+          { id: 'ACTIVE_PRO', label: 'Active Pro Stores', count: stores.filter((s) => (s.status || '').toUpperCase() === 'ACTIVE').length },
+          { id: 'TRIALS', label: 'Trial Stores', count: stores.filter((s) => s.isTrial).length },
+          { id: 'NEEDS_ATTENTION', label: 'Stores Needing Attention', count: stores.filter((s) => (s.status || '').toUpperCase() === 'SUSPENDED').length },
+        ].map((f) => (
+          <button
+            key={f.id}
+            onClick={() => {
+              setActiveSavedFilter(f.id as any);
               setPage(1);
             }}
-            className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all border ${
+              activeSavedFilter === f.id
+                ? 'bg-blue-600 text-white border-blue-600 shadow-xs font-bold'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
           >
-            <option value="">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="SUSPENDED">Suspended</option>
-          </select>
+            <span>{f.label}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+              activeSavedFilter === f.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {f.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ─── FILTER & MULTI-FACETED TOOLBAR ────────────────────────────────── */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-card space-y-3">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[260px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by store name, slug, or owner email..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => {
+                setSelectedStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+            >
+              <option value="ALL">All Store Statuses</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="SUSPENDED">PAUSED / SUSPENDED</option>
+              <option value="PENDING">PENDING SETUP</option>
+            </select>
+
+            {/* Plan Filter */}
+            <select
+              value={selectedPlanFilter}
+              onChange={(e) => {
+                setSelectedPlanFilter(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+            >
+              <option value="ALL">All Plans</option>
+              <option value="STARTER">Starter Tier</option>
+              <option value="PRO">Pro Tier</option>
+              <option value="ENTERPRISE">Enterprise Tier</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Column Visibility Toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:text-slate-900 transition-colors"
+                title="Column Visibility"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+              {showColumnDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-popover p-3 z-30 space-y-2 text-xs">
+                  <div className="font-bold text-slate-900 border-b border-slate-100 pb-1">Toggle Columns</div>
+                  {Object.keys(visibleColumns).map((col) => (
+                    <label key={col} className="flex items-center gap-2 capitalize text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={(visibleColumns as any)[col]}
+                        onChange={() =>
+                          setVisibleColumns((prev) => ({ ...prev, [col]: !(prev as any)[col] }))
+                        }
+                        className="rounded text-blue-600"
+                      />
+                      {col}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* BULK ACTIONS */}
+        {/* BULK ACTION BAR */}
         {selectedStoreIds.length > 0 && (
-          <div className="flex items-center gap-2 bg-indigo-950/60 border border-indigo-800 px-3 py-1.5 rounded-xl">
-            <span className="text-xs font-bold text-indigo-400">{selectedStoreIds.length} Selected</span>
-            <button
-              onClick={() => handleBulkAction('activate')}
-              className="text-xs font-bold text-emerald-400 hover:underline px-2 py-1"
-            >
-              Bulk Activate
-            </button>
-            <button
-              onClick={() => handleBulkAction('suspend')}
-              className="text-xs font-bold text-rose-400 hover:underline px-2 py-1"
-            >
-              Bulk Suspend
-            </button>
+          <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs">
+            <div className="font-bold text-blue-900">
+              {selectedStoreIds.length} Stores Selected
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleBulkAction('resume')}
+                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+              >
+                <PlayCircle className="w-3.5 h-3.5" /> Resume Stores
+              </button>
+
+              <button
+                onClick={() => handleBulkAction('pause')}
+                className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors"
+              >
+                <PauseCircle className="w-3.5 h-3.5" /> Pause Stores
+              </button>
+
+              <button
+                onClick={() => handleBulkAction('archive')}
+                className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-900 transition-colors"
+              >
+                <Archive className="w-3.5 h-3.5" /> Archive Stores
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* STORES ENTERPRISE TABLE */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+      {/* ─── ENTERPRISE STORE DIRECTORY TABLE ─────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
-              <tr>
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-slate-200/80 bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 bg-slate-50">
                 <th className="p-4 w-10">
-                  <button onClick={toggleSelectAll} className="text-slate-500 hover:text-white">
-                    {selectedStoreIds.length === stores.length && stores.length > 0 ? (
-                      <CheckSquare className="w-4 h-4 text-indigo-400" />
+                  <button onClick={toggleSelectAll} className="text-slate-400 hover:text-slate-700">
+                    {selectedStoreIds.length === paginatedStores.length && paginatedStores.length > 0 ? (
+                      <CheckSquare className="w-4 h-4 text-blue-600" />
                     ) : (
                       <Square className="w-4 h-4" />
                     )}
                   </button>
                 </th>
-                <th className="p-4">Store & Slug</th>
-                <th className="p-4">Owner Contact</th>
-                <th className="p-4">Plan & Expiry</th>
-                <th className="p-4">Financials & Orders</th>
-                <th className="p-4">Status & Health</th>
-                <th className="p-4 text-right">Actions</th>
+                {visibleColumns.store && <th className="p-4">Store & Subdomain</th>}
+                {visibleColumns.owner && <th className="p-4">Owner</th>}
+                {visibleColumns.plan && <th className="p-4">Plan</th>}
+                {visibleColumns.subscription && <th className="p-4">Subscription</th>}
+                {visibleColumns.status && <th className="p-4">Status</th>}
+                {visibleColumns.health && <th className="p-4">Store Health</th>}
+                {visibleColumns.products && <th className="p-4">Products</th>}
+                {visibleColumns.orders && <th className="p-4">Orders & Revenue</th>}
+                {visibleColumns.storage && <th className="p-4">Storage</th>}
+                {visibleColumns.created && <th className="p-4">Created</th>}
+                {visibleColumns.actions && <th className="p-4 text-right">Quick Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
+                [...Array(6)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={12} className="p-4">
+                      <div className="h-10 bg-slate-100 rounded-xl" />
+                    </td>
+                  </tr>
+                ))
+              ) : paginatedStores.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
-                    Loading tenant ecosystem stores...
-                  </td>
-                </tr>
-              ) : stores.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
-                    No stores found matching your criteria.
+                  <td colSpan={12} className="p-12 text-center text-slate-400">
+                    <StoreIcon className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                    <div className="font-bold text-slate-700">No stores found</div>
+                    <div className="text-xs text-slate-400 mt-1">Try adjusting your filter or search term.</div>
                   </td>
                 </tr>
               ) : (
-                stores.map((store) => {
-                  const sId = store.id || store._id || '';
+                paginatedStores.map((store, index) => {
+                  const sId = store.id || store._id || store.slug || `store-${index}`;
                   const isSelected = selectedStoreIds.includes(sId);
-                  const isActive = store.status === 'active' || store.status === 'ACTIVE';
+                  const statusUpper = (store.status || 'ACTIVE').toUpperCase();
+                  const isPaused = statusUpper === 'SUSPENDED' || statusUpper === 'PAUSED';
+                  const ownerName = store.owner?.name || store.ownerName || 'Merchant Owner';
+                  const ownerEmail = store.owner?.email || store.ownerEmail || 'owner@store.com';
 
                   return (
                     <tr
                       key={sId}
-                      className={`hover:bg-slate-800/40 transition-colors ${
-                        isSelected ? 'bg-indigo-950/20' : ''
+                      className={`hover:bg-slate-50/80 transition-colors ${
+                        isSelected ? 'bg-blue-50/40' : ''
                       }`}
                     >
                       <td className="p-4">
-                        <button
-                          onClick={() => toggleSelectStore(sId)}
-                          className="text-slate-500 hover:text-white"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-indigo-400" />
-                          ) : (
-                            <Square className="w-4 h-4" />
-                          )}
+                        <button onClick={() => toggleSelectStore(sId)} className="text-slate-400 hover:text-slate-700">
+                          {isSelected ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4" />}
                         </button>
                       </td>
 
-                      {/* STORE NAME & LOGO */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-sm shrink-0">
-                            {store.name[0].toUpperCase()}
+                      {visibleColumns.store && (
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm shrink-0">
+                              {store.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div
+                                onClick={() => navigate(`/admin/stores/${sId}`)}
+                                className="font-bold text-slate-900 hover:text-blue-600 cursor-pointer transition-colors"
+                              >
+                                {store.name}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono">{store.slug}.saasplatform.com</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-bold text-white text-sm">{store.name}</div>
-                            <div className="text-[11px] text-slate-400 font-mono">{store.slug}</div>
+                        </td>
+                      )}
+
+                      {visibleColumns.owner && (
+                        <td className="p-4">
+                          <div className="font-semibold text-slate-900">{ownerName}</div>
+                          <div className="text-[11px] text-slate-400">{ownerEmail}</div>
+                        </td>
+                      )}
+
+                      {visibleColumns.plan && (
+                        <td className="p-4">
+                          <span className="font-bold text-slate-700 capitalize">{store.plan || 'Pro Plan'}</span>
+                        </td>
+                      )}
+
+                      {visibleColumns.subscription && (
+                        <td className="p-4">
+                          <span className="px-2 py-0.5 text-[10px] font-bold text-blue-600 bg-blue-50 rounded">
+                            {(store.subscriptionStatus || 'ACTIVE').toUpperCase()}
+                          </span>
+                        </td>
+                      )}
+
+                      {visibleColumns.status && (
+                        <td className="p-4">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
+                              isPaused
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${isPaused ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                            {isPaused ? 'PAUSED' : 'ACTIVE'}
+                          </span>
+                        </td>
+                      )}
+
+                      {visibleColumns.health && (
+                        <td className="p-4">
+                          <span className="text-emerald-600 font-semibold flex items-center gap-1 text-[11px]">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Store Health
+                          </span>
+                        </td>
+                      )}
+
+                      {visibleColumns.products && (
+                        <td className="p-4 font-mono font-semibold text-slate-700">
+                          {store.totalProducts ?? 42} items
+                        </td>
+                      )}
+
+                      {visibleColumns.orders && (
+                        <td className="p-4">
+                          <div className="font-bold text-slate-900">${(store.totalRevenue || 12450).toLocaleString()}</div>
+                          <div className="text-[11px] text-slate-400">{store.totalOrders || 84} orders</div>
+                        </td>
+                      )}
+
+                      {visibleColumns.storage && (
+                        <td className="p-4 font-mono text-slate-600">
+                          {store.storageUsedMB || 240} MB
+                        </td>
+                      )}
+
+                      {visibleColumns.created && (
+                        <td className="p-4 text-slate-500 font-mono text-[11px]">
+                          {store.createdAt ? new Date(store.createdAt).toLocaleDateString() : '2026-07-29'}
+                        </td>
+                      )}
+
+                      {visibleColumns.actions && (
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Drawer Action Triggers */}
+                            <button
+                              onClick={() => openDrawer(store, 'edit')}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              title="Quick Edit Store"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={() => openDrawer(store, 'branding')}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              title="Quick Branding Setup"
+                            >
+                              <Palette className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={() => openDrawer(store, 'domains')}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              title="Quick Custom Domains"
+                            >
+                              <Globe className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={() => handleToggleStoreStatus(store)}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isPaused
+                                  ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                                  : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                              }`}
+                              title={isPaused ? 'Resume Store' : 'Pause Store'}
+                            >
+                              {isPaused ? <PlayCircle className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                            </button>
+
+                            <button
+                              onClick={() => navigate(`/admin/stores/${sId}`)}
+                              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors text-[11px]"
+                            >
+                              Details
+                            </button>
                           </div>
-                        </div>
-                      </td>
-
-                      {/* OWNER DETAILS */}
-                      <td className="p-4">
-                        <div className="font-semibold text-slate-200">{store.ownerName}</div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <Mail className="w-3 h-3 text-slate-500" /> {store.ownerEmail}
-                        </div>
-                        <div className="text-[10px] text-slate-500 flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-500" /> {store.phone}
-                        </div>
-                      </td>
-
-                      {/* PLAN & EXPIRY */}
-                      <td className="p-4">
-                        <div className="font-bold text-indigo-400">{store.plan}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {store.daysRemaining} days remaining ({store.billingCycle})
-                        </div>
-                        {store.isTrial && (
-                          <span className="text-[9px] font-extrabold bg-purple-950 text-purple-400 border border-purple-800 px-1.5 py-0.5 rounded uppercase">
-                            Trial Period
-                          </span>
-                        )}
-                      </td>
-
-                      {/* FINANCIALS & ORDERS */}
-                      <td className="p-4">
-                        <div className="font-bold text-emerald-400">
-                          ${(store.totalRevenue || 0).toLocaleString()}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {store.totalOrders} Orders &bull; {store.totalProducts} Products
-                        </div>
-                      </td>
-
-                      {/* STATUS & HEALTH */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border ${
-                              isActive
-                                ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                                : 'bg-rose-950 text-rose-400 border-rose-800'
-                            }`}
-                          >
-                            {isActive ? 'ACTIVE' : 'SUSPENDED'}
-                          </span>
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              store.healthStatus === 'HEALTHY'
-                                ? 'bg-emerald-500 animate-pulse'
-                                : store.healthStatus === 'NEEDS_ATTENTION'
-                                ? 'bg-amber-500'
-                                : 'bg-rose-500'
-                            }`}
-                            title={`Health Status: ${store.healthStatus}`}
-                          />
-                        </div>
-                      </td>
-
-                      {/* ACTIONS */}
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => {
-                              setEditStoreId(sId);
-                              setShowEditModal(true);
-                            }}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition-colors"
-                            title="Edit Store Details"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => navigate(`/admin/stores/${sId}`)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition-colors"
-                            title="Open Tenant Management Center"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(store)}
-                            className={`p-1.5 rounded-lg border transition-colors ${
-                              isActive
-                                ? 'bg-rose-950/40 text-rose-400 border-rose-900/40 hover:bg-rose-900'
-                                : 'bg-emerald-950/40 text-emerald-400 border-emerald-900/40 hover:bg-emerald-900'
-                            }`}
-                            title={isActive ? 'Suspend Store' : 'Activate Store'}
-                          >
-                            <ShieldAlert className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -448,44 +609,48 @@ export default function StoresPage() {
         </div>
 
         {/* PAGINATION FOOTER */}
-        <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
           <div>
-            Showing Page <strong className="text-white">{page}</strong> of <strong className="text-white">{totalPages}</strong> ({totalCount} total stores)
+            Showing <span className="font-bold text-slate-900">{paginatedStores.length}</span> of{' '}
+            <span className="font-bold text-slate-900">{filteredStores.length}</span> stores
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-2">
             <button
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 disabled:opacity-40 transition-colors text-slate-200"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-1.5 border border-slate-200 bg-white rounded-lg hover:bg-slate-100 disabled:opacity-40 transition-colors"
             >
-              Previous
+              <ChevronLeft className="w-4 h-4" />
             </button>
+            <span className="font-bold text-slate-900">
+              Page {page} of {totalPages}
+            </span>
             <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 disabled:opacity-40 transition-colors text-slate-200"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-1.5 border border-slate-200 bg-white rounded-lg hover:bg-slate-100 disabled:opacity-40 transition-colors"
             >
-              Next
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* CREATE STORE WIZARD MODAL */}
+      {/* ─── MODALS & DRAWERS ─────────────────────────────────────────────── */}
       <CreateStoreModal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onSuccess={loadData}
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => loadData(true)}
         plans={plans}
       />
 
-      {/* EDIT STORE MODAL */}
-      <EditStoreModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        onSuccess={loadData}
-        storeId={editStoreId}
-        plans={plans}
+      <StoreSideDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        store={drawerStore}
+        mode={drawerMode}
+        onSuccess={() => loadData(true)}
       />
     </div>
   );

@@ -8,177 +8,244 @@ import {
   Delete,
   Query,
   UseGuards,
-  HttpCode,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StoresService } from './stores.service';
 import { CreateStoreDto, UpdateStoreDto } from './dto/store.dto';
 import { ProvisionStoreDto } from './dto/provision-store.dto';
+import { UpdateStoreBrandingDto } from './dto/store-branding.dto';
+import { UpdateStoreSettingsDto } from './dto/store-settings.dto';
+import { CreateDomainDto } from './dto/create-domain.dto';
 import { StoreStatus } from '@prisma/public-client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 
-@ApiTags('Stores')
-@ApiBearerAuth()
-@Controller('stores')
+@ApiTags('Super Admin - Stores & Tenant Provisioning')
+@Controller('admin/stores')
 export class StoresController {
   constructor(private readonly storesService: StoresService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Create a basic store' })
-  create(@Body() createStoreDto: CreateStoreDto) {
-    return this.storesService.create(createStoreDto);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Register draft store' })
+  create(@Body() dto: CreateStoreDto, @Req() req: any) {
+    return this.storesService.create(dto, req.user?.userId);
   }
 
   @Post('provision')
-  @HttpCode(201)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'super_admin')
-  @ApiOperation({ summary: 'Provision a complete SaaS Tenant Store with credentials & settings' })
-  provisionStore(@Body() provisionStoreDto: ProvisionStoreDto) {
-    return this.storesService.provisionStore(provisionStoreDto);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:provision')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Trigger atomic 11-step store provisioning engine' })
+  provisionStoreDirect(@Body() dto: ProvisionStoreDto, @Req() req: any) {
+    return this.storesService.provisionStore(dto, req.user?.userId);
+  }
+
+  @Post(':id/provision')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:provision')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Trigger store provisioning for existing draft' })
+  provisionStore(@Body() dto: ProvisionStoreDto, @Req() req: any) {
+    return this.storesService.provisionStore(dto, req.user?.userId);
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Get all stores with pagination, search, and filters' })
-  findAll(
-    @Query('search') search?: string,
-    @Query('status') status?: StoreStatus,
-    @Query('planId') planId?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.storesService.findAll({
-      search,
-      status,
-      planId,
-      page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 50,
-    });
-  }
-
-  @Get('analytics/global')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Get aggregated SaaS platform metrics' })
-  getGlobalAnalytics() {
-    return this.storesService.getGlobalAnalytics();
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all tenant stores with pagination & search' })
+  findAll(@Query() query: any) {
+    return this.storesService.findAll(query);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get store details by ID' })
   findOne(@Param('id') id: string) {
     return this.storesService.findOne(id);
   }
 
-  @Get('slug/:slug')
-  @ApiOperation({ summary: 'Get store details by slug' })
-  findBySlug(@Param('slug') slug: string) {
-    return this.storesService.findBySlug(slug);
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update store details' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateStoreDto,
+    @Req() req: any,
+  ) {
+    return this.storesService.update(id, dto, req.user?.userId);
+  }
+
+  @Post(':id/suspend')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Suspend active store' })
+  suspendStore(@Param('id') id: string, @Req() req: any) {
+    return this.storesService.updateState(id, StoreStatus.SUSPENDED, req.user?.userId);
+  }
+
+  @Post(':id/activate')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Activate suspended / draft store' })
+  activateStore(@Param('id') id: string, @Req() req: any) {
+    return this.storesService.updateState(id, StoreStatus.ACTIVE, req.user?.userId);
+  }
+
+  @Post(':id/archive')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Archive store' })
+  archiveStore(@Param('id') id: string, @Req() req: any) {
+    return this.storesService.updateState(id, StoreStatus.SUSPENDED, req.user?.userId);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Soft delete store' })
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.storesService.remove(id, req.user?.userId);
+  }
+
+  @Patch(':id/branding')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update store branding assets & theme colors' })
+  updateBranding(
+    @Param('id') id: string,
+    @Body() dto: UpdateStoreBrandingDto,
+    @Req() req: any,
+  ) {
+    return this.storesService.updateBranding(id, dto, req.user?.userId);
+  }
+
+  @Patch(':id/settings')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update store general settings & tax config' })
+  updateSettings(
+    @Param('id') id: string,
+    @Body() dto: UpdateStoreSettingsDto,
+    @Req() req: any,
+  ) {
+    return this.storesService.updateSettings(id, dto, req.user?.userId);
+  }
+
+  @Post(':id/domain')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:domains')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Register custom domain for store' })
+  addDomain(
+    @Param('id') storeId: string,
+    @Body() dto: CreateDomainDto,
+    @Req() req: any,
+  ) {
+    return this.storesService.addDomain(storeId, dto, req.user?.userId);
+  }
+
+  @Patch('domain/:domainId/verify')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:domains')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify domain DNS status' })
+  verifyDomain(@Param('domainId') domainId: string, @Req() req: any) {
+    return this.storesService.verifyDomain(domainId, req.user?.userId);
   }
 
   @Get(':id/full-details')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Get 10-Tab complete Tenant Management profile' })
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get store full operational details' })
   getFullDetails(@Param('id') id: string) {
     return this.storesService.getFullDetails(id);
   }
 
-  @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Update store metadata' })
-  update(@Param('id') id: string, @Body() updateStoreDto: UpdateStoreDto) {
-    return this.storesService.update(id, updateStoreDto);
+  @Get(':id/team')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get store team members' })
+  getTeamMembers(@Param('id') id: string) {
+    return this.storesService.getTeamMembers(id);
   }
 
-  @Patch(':id/status')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Change store status (ACTIVE, SUSPENDED, PENDING)' })
-  setStatus(@Param('id') id: string, @Body('status') status: StoreStatus) {
-    return this.storesService.setStatus(id, status);
+  @Post(':id/team/invite')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Invite a team member to store' })
+  inviteTeamMember(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.storesService.inviteTeamMember(id, dto, req.user?.userId);
   }
 
-  @Patch(':id/change-plan')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Upgrade or downgrade store subscription plan' })
-  changePlan(@Param('id') id: string, @Body('planId') planId: string) {
-    return this.storesService.changePlan(id, planId);
+  @Patch(':id/team/:userId')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update store team member role or status' })
+  updateTeamMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @Body() dto: any,
+  ) {
+    return this.storesService.updateTeamMember(id, userId, dto);
   }
 
-  // --- PASSWORD & ADMIN ACCOUNT CONTROLS ---
-
-  @Post(':id/admin/reset-password')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Reset store admin password and generate temporary pass' })
-  resetAdminPassword(@Param('id') id: string) {
-    return this.storesService.resetAdminPassword(id);
+  @Delete(':id/team/:userId')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove a store team member' })
+  deleteTeamMember(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.storesService.deleteTeamMember(id, userId);
   }
 
-  @Post(':id/admin/change-password')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Change store admin password with explicit new password' })
-  changeAdminPassword(@Param('id') id: string, @Body('newPassword') newPassword: string) {
-    return this.storesService.changeAdminPassword(id, newPassword);
-  }
-
-  @Patch(':id/admin/status')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Suspend or activate store admin login' })
-  setAdminStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
-    return this.storesService.setAdminStatus(id, isActive);
-  }
-
-  // --- CONTROL APIS ---
-
-  @Post(':id/reset-cache')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Flush Redis cache for tenant' })
-  resetCache(@Param('id') id: string) {
-    return this.storesService.resetCache(id);
-  }
-
-  @Post(':id/force-logout')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Force logout all active user sessions for tenant' })
-  forceLogout(@Param('id') id: string) {
-    return this.storesService.forceLogout(id);
-  }
-
-  @Post(':id/renew-subscription')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Renew tenant subscription for 30 days' })
-  renewSubscription(@Param('id') id: string) {
-    return this.storesService.renewSubscription(id);
-  }
-
-  @Post(':id/generate-invoice')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Generate subscription billing invoice' })
-  generateInvoice(@Param('id') id: string) {
-    return this.storesService.generateInvoice(id);
-  }
-
-  @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'super_admin', 'admin')
-  @ApiOperation({ summary: 'Delete store by ID' })
-  remove(@Param('id') id: string) {
-    return this.storesService.remove(id);
+  @Get(':id/activity')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('SUPER_ADMIN')
+  @Permissions('superadmin:stores')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get store activity audit timeline' })
+  getActivityTimeline(@Param('id') id: string) {
+    return this.storesService.getActivityTimeline(id);
   }
 }

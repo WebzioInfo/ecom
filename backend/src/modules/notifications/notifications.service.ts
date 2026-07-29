@@ -1,95 +1,104 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, PlatformNotification, NotificationType } from '@prisma/client';
-import { StoreStatus } from '@prisma/public-client';
-import { CreateNotificationDto } from './dto/create-notification.dto';
+import { CreateNotificationDto, NotificationType, NotificationCategory, NotificationPriority } from './dto/create-notification.dto';
+import * as crypto from 'crypto';
+
+export interface PlatformNotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  category: NotificationCategory;
+  priority: NotificationPriority;
+  storeId?: string | null;
+  recipientRole: string;
+  status: 'UNREAD' | 'READ' | 'ARCHIVED';
+  createdAt: string;
+  readAt?: string | null;
+}
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
+  private globalNotifications: PlatformNotificationItem[] = [];
 
   constructor(private prisma: PrismaService) {}
 
-  async create(createDto: CreateNotificationDto): Promise<PlatformNotification> {
-    return this.prisma.client.platformNotification.create({
-      data: {
-        ...createDto,
-        type: createDto.type as NotificationType,
-        storeId: createDto.storeId || null,
-      } as any
-    });
-  }
+  async create(dto: CreateNotificationDto): Promise<PlatformNotificationItem> {
+    const notification: PlatformNotificationItem = {
+      id: `NTF-${crypto.randomBytes(8).toString('hex').toUpperCase()}`,
+      title: dto.title,
+      message: dto.message,
+      type: dto.type || NotificationType.INFO,
+      category: dto.category || NotificationCategory.SYSTEM,
+      priority: dto.priority || NotificationPriority.MEDIUM,
+      storeId: dto.storeId || null,
+      recipientRole: dto.recipientRole || 'SUPER_ADMIN',
+      status: 'UNREAD',
+      createdAt: new Date().toISOString(),
+      readAt: null,
+    };
 
-  async getStoreNotifications(storeId: string): Promise<PlatformNotification[]> {
-    return this.prisma.client.platformNotification.findMany({
-      where: { storeId },
-      orderBy: { createdAt: 'desc' },
-      take: 50
-    });
-  }
-
-  async getGlobalNotifications(): Promise<PlatformNotification[]> {
-    return this.prisma.client.platformNotification.findMany({
-      where: { storeId: null },
-      orderBy: { createdAt: 'desc' },
-      take: 50
-    });
-  }
-
-  async markAsRead(id: string): Promise<PlatformNotification | null> {
-    try {
-      return await this.prisma.client.platformNotification.update({
-        where: { id },
-        data: { isRead: true }
-      });
-    } catch {
-      return null;
+    this.globalNotifications.unshift(notification);
+    if (this.globalNotifications.length > 500) {
+      this.globalNotifications = this.globalNotifications.slice(0, 500);
     }
+
+    this.logger.log(`[Notification Created] [${notification.type}] ${notification.title}: ${notification.message}`);
+    return notification;
   }
 
-  async markAllAsRead(storeId: string): Promise<{ modifiedCount: number }> {
-    const result = await this.prisma.client.platformNotification.updateMany({
-      where: { storeId, isRead: false },
-      data: { isRead: true }
-    });
-    return { modifiedCount: result.count };
+  async findAll(query: any = {}) {
+    let result = [...this.globalNotifications];
+
+    if (query.storeId) {
+      result = result.filter((n) => n.storeId === query.storeId || !n.storeId);
+    }
+    if (query.status) {
+      result = result.filter((n) => n.status === query.status);
+    }
+    if (query.type) {
+      result = result.filter((n) => n.type === query.type);
+    }
+
+    return result;
   }
 
-  @Cron('0 0 * * *')
-  async checkExpiringSubscriptions() {
-    this.logger.log('Running daily subscription check...');
-    const today = new Date();
-    const threeDaysFromNow = new Date();
-    threeDaysFromNow.setDate(today.getDate() + 3);
+  async findOne(id: string) {
+    const notif = this.globalNotifications.find((n) => n.id === id);
+    if (!notif) throw new NotFoundException(`Notification #${id} not found.`);
+    return notif;
+  }
 
-    // In prisma, subscription is a JSON field on Store.
-    // We fetch all active stores and parse the subscription field manually.
-    const activeStores = await this.prisma.client.store.findMany({
-      where: { status: StoreStatus.ACTIVE }
-    });
+  async markAsRead(id: string) {
+    const notif = await this.findOne(id);
+    notif.status = 'READ';
+    notif.readAt = new Date().toISOString();
+    return notif;
+  }
 
-    for (const store of activeStores) {
-      const sub = store.subscription as any;
-      if (!sub || !sub.renewalDate) continue;
+  async markAsArchived(id: string) {
+    const notif = await this.findOne(id);
+    notif.status = 'ARCHIVED';
+    return notif;
+  }
 
-      const renewalDate = new Date(sub.renewalDate);
-
-      if (renewalDate >= today && renewalDate <= threeDaysFromNow) {
-        await this.create({
-          title: 'Subscription Expiring Soon',
-          message: `Your subscription will renew/expire on ${renewalDate.toLocaleDateString()}. Please ensure your payment method is up to date.`,
-          type: NotificationType.WARNING,
-          storeId: store.id,
-        } as any);
-      } else if (renewalDate < today) {
-        await this.create({
-          title: 'Subscription Expired',
-          message: 'Your subscription has expired. Some features may be restricted until payment is updated.',
-          type: NotificationType.ERROR,
-          storeId: store.id,
-        } as any);
+  async markAllAsRead(storeId?: string) {
+    let count = 0;
+    for (const notif of this.globalNotifications) {
+      if ((!storeId || notif.storeId === storeId) && notif.status === 'UNREAD') {
+        notif.status = 'READ';
+        notif.readAt = new Date().toISOString();
+        count++;
       }
     }
+    return { modifiedCount: count };
+  }
+
+  async remove(id: string) {
+    const index = this.globalNotifications.findIndex((n) => n.id === id);
+    if (index === -1) throw new NotFoundException(`Notification #${id} not found.`);
+    this.globalNotifications.splice(index, 1);
+    return { message: `Notification #${id} deleted successfully.` };
   }
 }
